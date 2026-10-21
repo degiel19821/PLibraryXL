@@ -12,7 +12,7 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Qt, QByteArray
 from PySide6.QtGui import QPixmap, QImage
 
-from SteamForgeLib import SteamForgeLib
+from SteamForgeLib import SteamForgeLib, SteamForgeError
 
 class ShortcutDialog(QDialog):
     def __init__(self, parent=None, shortcut_data=None):
@@ -161,7 +161,7 @@ class SteamForgeLibTestGUI(QMainWindow):
         log_layout.addWidget(self.log_text)
         main_layout.addWidget(log_group)
 
-        self.log("SteamForgeLib GUI initialized successfully with UMU Launcher and SteamGridDB support.")
+        self.log("SteamForgeLib GUI initialized successfully with Pythonic Exception handling.")
 
     def log(self, message: str):
         self.log_text.append(message)
@@ -214,10 +214,14 @@ class SteamForgeLibTestGUI(QMainWindow):
         self.tabs.addTab(tab, "Steam Process & Users")
 
     def check_steam_status(self):
-        running = SteamForgeLib.is_steam_running()
-        status_str = "Running" if running else "Not Running"
-        self.lbl_steam_status.setText(f"Steam Status: <b>{status_str}</b>")
-        self.log(f"Checked Steam status: {status_str}")
+        try:
+            running = SteamForgeLib.is_steam_running()
+            status_str = "Running" if running else "Not Running"
+            self.lbl_steam_status.setText(f"Steam Status: <b>{status_str}</b>")
+            self.log(f"Checked Steam status: {status_str}")
+        except SteamForgeError as e:
+            QMessageBox.critical(self, "Process Error", str(e))
+            self.log(f"Failed to check Steam status: {e}")
 
     def browse_vdf_path(self):
         path, _ = QFileDialog.getOpenFileName(self, "Select loginusers.vdf", "", "VDF Files (*.vdf);;All Files (*)")
@@ -227,23 +231,23 @@ class SteamForgeLibTestGUI(QMainWindow):
     def parse_login_users(self):
         path = self.txt_vdf_path.text()
         self.log(f"Parsing loginusers.vdf from: {path}")
-        success, accounts, count, error = SteamForgeLib.parse_steam_login_users(path)
         
-        if not success:
-            QMessageBox.critical(self, "Error", error)
-            self.log(f"Error parsing loginusers.vdf: {error}")
-            return
-
-        self.log(f"Successfully parsed {count} accounts.")
-        self.table_accounts.setRowCount(count)
-        for row, acc in enumerate(accounts):
-            self.table_accounts.setItem(row, 0, QTableWidgetItem(str(acc.get("SteamID64"))))
-            self.table_accounts.setItem(row, 1, QTableWidgetItem(str(acc.get("SteamID32"))))
-            self.table_accounts.setItem(row, 2, QTableWidgetItem(str(acc.get("AccountName"))))
-            self.table_accounts.setItem(row, 3, QTableWidgetItem(str(acc.get("PersonaName"))))
-            self.table_accounts.setItem(row, 4, QTableWidgetItem(str(acc.get("RememberPassword"))))
-            self.table_accounts.setItem(row, 5, QTableWidgetItem(str(acc.get("AutoLogin"))))
-            self.table_accounts.setItem(row, 6, QTableWidgetItem(str(acc.get("Timestamp"))))
+        try:
+            accounts = SteamForgeLib.parse_steam_login_users(path)
+            count = len(accounts)
+            self.log(f"Successfully parsed {count} accounts.")
+            self.table_accounts.setRowCount(count)
+            for row, acc in enumerate(accounts):
+                self.table_accounts.setItem(row, 0, QTableWidgetItem(str(acc.get("SteamID64"))))
+                self.table_accounts.setItem(row, 1, QTableWidgetItem(str(acc.get("SteamID32"))))
+                self.table_accounts.setItem(row, 2, QTableWidgetItem(str(acc.get("AccountName"))))
+                self.table_accounts.setItem(row, 3, QTableWidgetItem(str(acc.get("PersonaName"))))
+                self.table_accounts.setItem(row, 4, QTableWidgetItem(str(acc.get("RememberPassword"))))
+                self.table_accounts.setItem(row, 5, QTableWidgetItem(str(acc.get("AutoLogin"))))
+                self.table_accounts.setItem(row, 6, QTableWidgetItem(str(acc.get("Timestamp"))))
+        except SteamForgeError as e:
+            QMessageBox.critical(self, "Error Parsing VDF", str(e))
+            self.log(f"Error parsing loginusers.vdf: {e}")
 
     # ==========================================
     # TAB 2: JSON Config Management
@@ -325,40 +329,37 @@ class SteamForgeLibTestGUI(QMainWindow):
     def create_config(self):
         path = self.txt_config_path.text()
         initial = {"settings": {"graphics": {"resolution": "1920x1080", "fullscreen": True}, "volume": 80}}
-        success, abs_path, error = SteamForgeLib.create_config(path, initial_data=initial, overwrite=True)
-        if not success:
-            QMessageBox.critical(self, "Error", error)
-            self.log(f"Failed to create config: {error}")
-            return
-        self.log(f"Created config at: {abs_path}")
-        self.read_config()
+        try:
+            abs_path = SteamForgeLib.create_config(path, initial_data=initial, overwrite=True)
+            self.log(f"Created config at: {abs_path}")
+            self.read_config()
+        except SteamForgeError as e:
+            QMessageBox.critical(self, "Config Error", str(e))
+            self.log(f"Failed to create config: {e}")
 
     def read_config(self):
         path = self.txt_config_path.text()
-        success, data, error = SteamForgeLib.read_config(path)
-        if not success:
-            QMessageBox.critical(self, "Error", error)
-            self.log(f"Failed to read config: {error}")
-            return
-        self.txt_config_editor.setPlainText(json.dumps(data, indent=4))
-        self.log(f"Successfully read config from: {path}")
+        try:
+            data = SteamForgeLib.read_config(path)
+            self.txt_config_editor.setPlainText(json.dumps(data, indent=4))
+            self.log(f"Successfully read config from: {path}")
+        except SteamForgeError as e:
+            QMessageBox.critical(self, "Config Error", str(e))
+            self.log(f"Failed to read config: {e}")
 
     def write_config(self):
         path = self.txt_config_path.text()
         content = self.txt_config_editor.toPlainText()
         try:
             data = json.loads(content)
+            SteamForgeLib.write_config(path, data)
+            self.log(f"Successfully wrote config to: {path}")
+            QMessageBox.information(self, "Success", "Configuration successfully saved.")
         except json.JSONDecodeError as e:
             QMessageBox.critical(self, "JSON Error", f"Invalid JSON format: {str(e)}")
-            return
-
-        success, error = SteamForgeLib.write_config(path, data)
-        if not success:
-            QMessageBox.critical(self, "Error", error)
-            self.log(f"Failed to write config: {error}")
-            return
-        self.log(f"Successfully wrote config to: {path}")
-        QMessageBox.information(self, "Success", "Configuration successfully saved.")
+        except SteamForgeError as e:
+            QMessageBox.critical(self, "Config Error", str(e))
+            self.log(f"Failed to write config: {e}")
 
     def parse_value_type(self, val_str: str):
         if val_str.lower() == "true":
@@ -378,13 +379,13 @@ class SteamForgeLibTestGUI(QMainWindow):
         key_path = self.txt_key_path.text()
         val = self.parse_value_type(self.txt_key_value.text())
 
-        success, error = SteamForgeLib.update_config_value(path, key_path, val)
-        if not success:
-            QMessageBox.critical(self, "Error", error)
-            self.log(f"Failed to update config key: {error}")
-            return
-        self.log(f"Successfully updated '{key_path}' = {val} in {path}")
-        self.read_config()
+        try:
+            SteamForgeLib.update_config_value(path, key_path, val)
+            self.log(f"Successfully updated '{key_path}' = {val} in {path}")
+            self.read_config()
+        except SteamForgeError as e:
+            QMessageBox.critical(self, "Config Error", str(e))
+            self.log(f"Failed to update config key: {e}")
 
     def update_bulk_config(self):
         path = self.txt_config_path.text()
@@ -393,21 +394,18 @@ class SteamForgeLibTestGUI(QMainWindow):
             updates_raw = json.loads(content)
             if not isinstance(updates_raw, dict):
                 raise ValueError("Updates must be a dictionary of key-value pairs.")
-        except Exception as e:
-            QMessageBox.critical(self, "Error", f"Invalid updates JSON: {str(e)}")
-            return
-
-        updates = {k: self.parse_value_type(str(v)) if not isinstance(v, (bool, int, float)) else v for k, v in updates_raw.items()}
-
-        success, error = SteamForgeLib.update_config_values(path, updates)
-        if not success:
-            QMessageBox.critical(self, "Error", error)
-            self.log(f"Failed to perform batch config update: {error}")
-            return
-
-        self.log(f"Successfully performed batch update on {path}")
-        QMessageBox.information(self, "Success", "Batch configuration updates applied successfully.")
-        self.read_config()
+            updates = {k: self.parse_value_type(str(v)) if not isinstance(v, (bool, int, float)) else v for k, v in updates_raw.items()}
+            SteamForgeLib.update_config_values(path, updates)
+            
+            self.log(f"Successfully performed batch update on {path}")
+            QMessageBox.information(self, "Success", "Batch configuration updates applied successfully.")
+            self.read_config()
+            
+        except (json.JSONDecodeError, ValueError) as e:
+            QMessageBox.critical(self, "Data Error", f"Invalid updates JSON format: {str(e)}")
+        except SteamForgeError as e:
+            QMessageBox.critical(self, "Config Error", str(e))
+            self.log(f"Failed to perform batch config update: {e}")
 
     # ==========================================
     # TAB 3: Steam Shortcuts Management
@@ -472,39 +470,38 @@ class SteamForgeLibTestGUI(QMainWindow):
         vdf_path = SteamForgeLib.get_shortcuts_path(steam_id_32, base_path)
         
         self.log(f"Reading shortcuts from: {vdf_path}")
-        success, shortcuts, count, error = SteamForgeLib.read_shortcuts(steam_id_32, vdf_path)
-        
-        if not success:
-            QMessageBox.warning(self, "Notice / Error", error)
-            self.log(f"Shortcuts read notice: {error}")
+        try:
+            shortcuts = SteamForgeLib.read_shortcuts(steam_id_32, vdf_path)
+            count = len(shortcuts)
+            self.log(f"Successfully loaded {count} shortcuts with all fields.")
+            self.table_shortcuts.setRowCount(count)
+
+            row = 0
+            for idx_str, sc_data in shortcuts.items():
+                item_idx = QTableWidgetItem(str(idx_str))
+                item_idx.setData(Qt.UserRole, sc_data)
+                
+                self.table_shortcuts.setItem(row, 0, item_idx)
+                self.table_shortcuts.setItem(row, 1, QTableWidgetItem(str(sc_data.get("appname", ""))))
+                self.table_shortcuts.setItem(row, 2, QTableWidgetItem(str(sc_data.get("exe", ""))))
+                self.table_shortcuts.setItem(row, 3, QTableWidgetItem(str(sc_data.get("StartDir", ""))))
+                self.table_shortcuts.setItem(row, 4, QTableWidgetItem(str(sc_data.get("icon", ""))))
+                self.table_shortcuts.setItem(row, 5, QTableWidgetItem(str(sc_data.get("ShortcutPath", ""))))
+                self.table_shortcuts.setItem(row, 6, QTableWidgetItem(str(sc_data.get("LaunchOptions", ""))))
+                self.table_shortcuts.setItem(row, 7, QTableWidgetItem(str(sc_data.get("IsHidden", 0))))
+                self.table_shortcuts.setItem(row, 8, QTableWidgetItem(str(sc_data.get("AllowDesktopConfig", 1))))
+                self.table_shortcuts.setItem(row, 9, QTableWidgetItem(str(sc_data.get("AllowOverlay", 1))))
+                self.table_shortcuts.setItem(row, 10, QTableWidgetItem(str(sc_data.get("OpenVR", 0))))
+                self.table_shortcuts.setItem(row, 11, QTableWidgetItem(str(sc_data.get("LastPlayTime", 0))))
+                
+                tags_val = sc_data.get("tags", {})
+                tags_str = json.dumps(tags_val) if isinstance(tags_val, dict) else str(tags_val)
+                self.table_shortcuts.setItem(row, 12, QTableWidgetItem(tags_str))
+                row += 1
+        except SteamForgeError as e:
+            QMessageBox.warning(self, "Notice / Error", str(e))
+            self.log(f"Shortcuts read notice: {e}")
             self.table_shortcuts.setRowCount(0)
-            return
-
-        self.log(f"Successfully loaded {count} shortcuts with all fields.")
-        self.table_shortcuts.setRowCount(count)
-
-        row = 0
-        for idx_str, sc_data in shortcuts.items():
-            item_idx = QTableWidgetItem(str(idx_str))
-            item_idx.setData(Qt.UserRole, sc_data)
-            
-            self.table_shortcuts.setItem(row, 0, item_idx)
-            self.table_shortcuts.setItem(row, 1, QTableWidgetItem(str(sc_data.get("appname", ""))))
-            self.table_shortcuts.setItem(row, 2, QTableWidgetItem(str(sc_data.get("exe", ""))))
-            self.table_shortcuts.setItem(row, 3, QTableWidgetItem(str(sc_data.get("StartDir", ""))))
-            self.table_shortcuts.setItem(row, 4, QTableWidgetItem(str(sc_data.get("icon", ""))))
-            self.table_shortcuts.setItem(row, 5, QTableWidgetItem(str(sc_data.get("ShortcutPath", ""))))
-            self.table_shortcuts.setItem(row, 6, QTableWidgetItem(str(sc_data.get("LaunchOptions", ""))))
-            self.table_shortcuts.setItem(row, 7, QTableWidgetItem(str(sc_data.get("IsHidden", 0))))
-            self.table_shortcuts.setItem(row, 8, QTableWidgetItem(str(sc_data.get("AllowDesktopConfig", 1))))
-            self.table_shortcuts.setItem(row, 9, QTableWidgetItem(str(sc_data.get("AllowOverlay", 1))))
-            self.table_shortcuts.setItem(row, 10, QTableWidgetItem(str(sc_data.get("OpenVR", 0))))
-            self.table_shortcuts.setItem(row, 11, QTableWidgetItem(str(sc_data.get("LastPlayTime", 0))))
-            
-            tags_val = sc_data.get("tags", {})
-            tags_str = json.dumps(tags_val) if isinstance(tags_val, dict) else str(tags_val)
-            self.table_shortcuts.setItem(row, 12, QTableWidgetItem(tags_str))
-            row += 1
 
     def add_shortcut_dialog(self):
         steam_id_32 = self.get_steam_id_32()
@@ -514,15 +511,14 @@ class SteamForgeLibTestGUI(QMainWindow):
         dialog = ShortcutDialog(self)
         if dialog.exec() == QDialog.Accepted:
             new_sc = dialog.get_data()
-            success, error = SteamForgeLib.add_shortcut(steam_id_32, new_sc, vdf_path)
-            if not success:
-                QMessageBox.critical(self, "Error", error)
-                self.log(f"Failed to add shortcut: {error}")
-                return
-            
-            self.log("Successfully added new custom shortcut with all fields.")
-            QMessageBox.information(self, "Success", "Custom shortcut added successfully.")
-            self.load_shortcuts()
+            try:
+                SteamForgeLib.add_shortcut(steam_id_32, new_sc, vdf_path)
+                self.log("Successfully added new custom shortcut with all fields.")
+                QMessageBox.information(self, "Success", "Custom shortcut added successfully.")
+                self.load_shortcuts()
+            except SteamForgeError as e:
+                QMessageBox.critical(self, "Error", str(e))
+                self.log(f"Failed to add shortcut: {e}")
 
     def edit_shortcut_dialog(self):
         selected_rows = self.table_shortcuts.selectionModel().selectedRows()
@@ -545,15 +541,14 @@ class SteamForgeLibTestGUI(QMainWindow):
         dialog = ShortcutDialog(self, shortcut_data=existing_data)
         if dialog.exec() == QDialog.Accepted:
             updated_data = dialog.get_data()
-            success, error = SteamForgeLib.edit_shortcut(steam_id_32, idx, updated_data, vdf_path)
-            if not success:
-                QMessageBox.critical(self, "Error", error)
-                self.log(f"Failed to edit shortcut: {error}")
-                return
-
-            self.log(f"Successfully updated shortcut at index {idx} with all fields.")
-            QMessageBox.information(self, "Success", f"Shortcut index {idx} updated successfully.")
-            self.load_shortcuts()
+            try:
+                SteamForgeLib.edit_shortcut(steam_id_32, idx, updated_data, vdf_path)
+                self.log(f"Successfully updated shortcut at index {idx} with all fields.")
+                QMessageBox.information(self, "Success", f"Shortcut index {idx} updated successfully.")
+                self.load_shortcuts()
+            except SteamForgeError as e:
+                QMessageBox.critical(self, "Error", str(e))
+                self.log(f"Failed to edit shortcut: {e}")
 
     def remove_shortcut_selected(self):
         selected_rows = self.table_shortcuts.selectionModel().selectedRows()
@@ -571,15 +566,14 @@ class SteamForgeLibTestGUI(QMainWindow):
         base_path = self.txt_base_steam_path.text()
         vdf_path = SteamForgeLib.get_shortcuts_path(steam_id_32, base_path)
 
-        success, error = SteamForgeLib.remove_shortcut(steam_id_32, idx, vdf_path)
-        if not success:
-            QMessageBox.critical(self, "Error", error)
-            self.log(f"Failed to remove shortcut: {error}")
-            return
-
-        self.log(f"Successfully removed shortcut at index {idx}.")
-        QMessageBox.information(self, "Success", f"Shortcut index {idx} removed successfully.")
-        self.load_shortcuts()
+        try:
+            SteamForgeLib.remove_shortcut(steam_id_32, idx, vdf_path)
+            self.log(f"Successfully removed shortcut at index {idx}.")
+            QMessageBox.information(self, "Success", f"Shortcut index {idx} removed successfully.")
+            self.load_shortcuts()
+        except SteamForgeError as e:
+            QMessageBox.critical(self, "Error", str(e))
+            self.log(f"Failed to remove shortcut: {e}")
 
     # ==========================================
     # TAB 4: UMU / Proton Launcher Integration
@@ -641,24 +635,22 @@ class SteamForgeLibTestGUI(QMainWindow):
             return
 
         self.log(f"Attempting to launch {exe_path} via UMU ({umu_run})...")
-        success, process, error = SteamForgeLib.launch_with_umu(
-            target_exe=exe_path,
-            umu_run_path=umu_run,
-            proton_version=proton,
-            game_id=game_id,
-            prefix_path=prefix,
-            launch_options=args_list,
-            log_output=True
-        )
-
-        if not success:
-            QMessageBox.critical(self, "UMU Launch Error", error)
-            self.log(f"UMU launch failed: {error}")
-            return
-
-        pid_str = str(process.pid) if process else "N/A"
-        self.log("Successfully launched process via UMU (PID: " + pid_str + ")")
-        QMessageBox.information(self, "Success", "Successfully launched process via UMU!\nPID: " + pid_str)
+        try:
+            process = SteamForgeLib.launch_with_umu(
+                target_exe=exe_path,
+                umu_run_path=umu_run,
+                proton_version=proton,
+                game_id=game_id,
+                prefix_path=prefix,
+                launch_options=args_list,
+                log_output=True
+            )
+            pid_str = str(process.pid) if process else "N/A"
+            self.log("Successfully launched process via UMU (PID: " + pid_str + ")")
+            QMessageBox.information(self, "Success", "Successfully launched process via UMU!\nPID: " + pid_str)
+        except SteamForgeError as e:
+            QMessageBox.critical(self, "UMU Launch Error", str(e))
+            self.log(f"UMU launch failed: {e}")
 
     # ==========================================
     # TAB 5: SteamGridDB Integration & Preview
@@ -757,7 +749,6 @@ class SteamForgeLibTestGUI(QMainWindow):
         image_type = self.combo_image_type.currentText()
         mode = self.combo_query_mode.currentIndex()
 
-        # Parse sizes and filetypes filter inputs
         sizes_raw = self.txt_filter_sizes.text().strip()
         sizes_list = [s.strip() for s in sizes_raw.split(",")] if sizes_raw else None
 
@@ -771,46 +762,46 @@ class SteamForgeLibTestGUI(QMainWindow):
             QMessageBox.warning(self, "Query Required", "Please enter a game name or game ID.")
             return
 
-        if mode == 0:
-            self.log(f"Querying SteamGridDB by name for '{query_text}' ({image_type}) with filters...")
-            success, images, error = SteamForgeLib.get_sgdb_images_by_name(
-                api_key, query_text, image_type, sizes=sizes_list, filetypes=filetypes_list
-            )
-        else:
-            try:
-                game_id = int(query_text)
-            except ValueError:
-                QMessageBox.critical(self, "Invalid ID", "Game ID must be a valid integer number (e.g. 650).")
-                return
+        try:
+            if mode == 0:
+                self.log(f"Querying SteamGridDB by name for '{query_text}' ({image_type}) with filters...")
+                images = SteamForgeLib.get_sgdb_images_by_name(
+                    api_key, query_text, image_type, sizes=sizes_list, filetypes=filetypes_list
+                )
+            else:
+                try:
+                    game_id = int(query_text)
+                except ValueError:
+                    QMessageBox.critical(self, "Invalid ID", "Game ID must be a valid integer number (e.g. 650).")
+                    return
 
-            self.log(f"Querying SteamGridDB directly by ID {game_id} ({image_type}) with filters...")
-            success, images, error = SteamForgeLib.get_sgdb_images_by_id(
-                api_key, game_id, image_type, sizes=sizes_list, filetypes=filetypes_list
-            )
+                self.log(f"Querying SteamGridDB directly by ID {game_id} ({image_type}) with filters...")
+                images = SteamForgeLib.get_sgdb_images_by_id(
+                    api_key, game_id, image_type, sizes=sizes_list, filetypes=filetypes_list
+                )
 
-        if not success:
-            QMessageBox.critical(self, "SteamGridDB Error", error)
-            self.log(f"SteamGridDB error: {error}")
+            self.log(f"Successfully retrieved and filtered {len(images)} {image_type} items.")
+            self.table_sgdb.setRowCount(len(images))
+
+            for row, img in enumerate(images):
+                img_id = str(img.get("id", ""))
+                style = str(img.get("style", "N/A"))
+                dims = f"{img.get('width', '?')}x{img.get('height', '?')}"
+                author_data = img.get("author", {})
+                author_name = author_data.get("name", "Unknown") if isinstance(author_data, dict) else "Unknown"
+                url = str(img.get("url", ""))
+
+                self.table_sgdb.setItem(row, 0, QTableWidgetItem(img_id))
+                self.table_sgdb.setItem(row, 1, QTableWidgetItem(style))
+                self.table_sgdb.setItem(row, 2, QTableWidgetItem(dims))
+                self.table_sgdb.setItem(row, 3, QTableWidgetItem(author_name))
+                self.table_sgdb.setItem(row, 4, QTableWidgetItem(url))
+        except SteamForgeError as e:
+            QMessageBox.critical(self, "SteamGridDB Error", str(e))
+            self.log(f"SteamGridDB error: {e}")
             self.table_sgdb.setRowCount(0)
             self.lbl_image_preview.setText("No image preview available")
-            return
 
-        self.log(f"Successfully retrieved and filtered {len(images)} {image_type} items.")
-        self.table_sgdb.setRowCount(len(images))
-
-        for row, img in enumerate(images):
-            img_id = str(img.get("id", ""))
-            style = str(img.get("style", "N/A"))
-            dims = f"{img.get('width', '?')}x{img.get('height', '?')}"
-            author_data = img.get("author", {})
-            author_name = author_data.get("name", "Unknown") if isinstance(author_data, dict) else "Unknown"
-            url = str(img.get("url", ""))
-
-            self.table_sgdb.setItem(row, 0, QTableWidgetItem(img_id))
-            self.table_sgdb.setItem(row, 1, QTableWidgetItem(style))
-            self.table_sgdb.setItem(row, 2, QTableWidgetItem(dims))
-            self.table_sgdb.setItem(row, 3, QTableWidgetItem(author_name))
-            self.table_sgdb.setItem(row, 4, QTableWidgetItem(url))
 
     def preview_selected_sgdb_image(self):
         selected_rows = self.table_sgdb.selectionModel().selectedRows()
@@ -840,9 +831,12 @@ class SteamForgeLibTestGUI(QMainWindow):
                 self.log(f"Loaded image preview for ID {self.table_sgdb.item(row, 0).text()}")
             else:
                 self.lbl_image_preview.setText("Failed to decode image format")
+        except urllib.error.URLError as e:
+            self.lbl_image_preview.setText("Network Timeout / Error")
+            self.log(f"Image preview network error: {str(e)}")
         except Exception as e:
             self.lbl_image_preview.setText("Error downloading preview")
-            self.log(f"Image preview download error: {str(e)}")
+            self.log(f"Image preview error: {str(e)}")
 
 
 if __name__ == "__main__":
