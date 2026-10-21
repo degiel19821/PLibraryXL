@@ -93,7 +93,7 @@ The companion GUI application (`SteamForgeLibGUI.py`) serves as an interactive t
 
 ### Tab 3: Steam Shortcuts Management
 * **Target Selection:** Configure the target `SteamID32` and base Steam path to locate user-specific `shortcuts.vdf` files.
-* **Interactive Dialogs:** Load, view, add, or edit non-Steam shortcuts across all 13 binary fields (executable paths, tags, start directories, hidden/overlay flags). Deleting entries automatically re-indexes remaining shortcuts.
+* **Interactive Dialogs:** Load, view, add, or edit non-Steam shortcuts across all binary fields (executable paths, tags, start directories, hidden/overlay flags). Deleting entries automatically re-indexes remaining shortcuts.
 
 ### Tab 4: UMU / Proton Launcher Integration
 * **Launcher Testing:** Configure a target executable, `umu-run` path, Proton version, game ID, WINEPREFIX, and launch arguments to visually test running isolated Windows programs on Linux via the library wrapper.
@@ -113,15 +113,14 @@ Read local Steam account configurations to extract user IDs and profile info.
 ```python
 from SteamForgeLib import SteamForgeLib
 
-# Parse login users from the default path (or pass a custom vdf_path)
-success, accounts, count, error = SteamForgeLib.parse_steam_login_users()
-
-if success:
-    print(f"Found {count} Steam account(s):")
+try:
+    # Parse login users from the default path (or pass a custom vdf_path)
+    accounts = SteamForgeLib.parse_steam_login_users()
+    print(f"Found {len(accounts)} Steam account(s):")
     for acc in accounts:
         print(f" - {acc['AccountName']} (ID64: {acc['SteamID64']}, ID32: {acc['SteamID32']})")
-else:
-    print(f"Failed to parse login users: {error}")
+except Exception as e:
+    print(f"Failed to parse login users: {e}")
 ```
 
 ### 2. JSON Configuration Management & Dot-Notation Updates
@@ -143,9 +142,8 @@ initial_data = {
         "volume": 75
     }
 }
-success, path, error = SteamForgeLib.create_config(config_file, initial_data=initial_data, overwrite=True)
-if success:
-    print(f"Config created at: {path}")
+path = SteamForgeLib.create_config(config_file, initial_data=initial_data, overwrite=True)
+print(f"Config created at: {path}")
 
 # 2. Update a single nested key using dot notation
 SteamForgeLib.update_config_value(config_file, "settings.graphics.resolution", "2560x1440")
@@ -158,7 +156,7 @@ SteamForgeLib.update_config_values(config_file, {
 })
 
 # 4. Read back the updated configuration
-success, config_data, error = SteamForgeLib.read_config(config_file)
+config_data = SteamForgeLib.read_config(config_file)
 print("Updated Config:", config_data)
 ```
 
@@ -185,9 +183,11 @@ from SteamForgeLib import SteamForgeLib
 steam_id_32 = 12345678  # Replace with the user's 32-bit Steam ID
 
 # 1. Read existing shortcuts
-success, shortcuts, count, error = SteamForgeLib.read_shortcuts(steam_id_32)
-if success:
-    print(f"Loaded {count} non-Steam shortcuts.")
+try:
+    shortcuts = SteamForgeLib.read_shortcuts(steam_id_32)
+    print(f"Loaded {len(shortcuts)} non-Steam shortcuts.")
+except Exception:
+    print("No existing shortcuts found or failed to read.")
 
 # 2. Add a new non-Steam shortcut
 new_shortcut = {
@@ -209,9 +209,8 @@ new_shortcut = {
     "tags": {"Emulator": 1, "Retro": 1}
 }
 
-success, error = SteamForgeLib.add_shortcut(steam_id_32, new_shortcut)
-if success:
-    print("New shortcut added successfully.")
+SteamForgeLib.add_shortcut(steam_id_32, new_shortcut)
+print("New shortcut added successfully.")
 
 # 3. Remove a shortcut by index (automatically re-indexes remaining entries)
 # SteamForgeLib.remove_shortcut(steam_id_32, index=0)
@@ -224,20 +223,19 @@ Launch Windows executables via `umu-run` with isolated prefixes and custom Proto
 ```python
 from SteamForgeLib import SteamForgeLib
 
-success, process, error = SteamForgeLib.launch_with_umu(
-    target_exe="/path/to/game/game.exe",
-    umu_run_path="umu-run",
-    proton_version="/path/to/proton/Experimental",
-    game_id="123456",
-    prefix_path="/path/to/wineprefix",
-    launch_options=["-dx11", "-windowed"],
-    log_output=True
-)
-
-if success:
+try:
+    process = SteamForgeLib.launch_with_umu(
+        target_exe="/path/to/game/game.exe",
+        umu_run_path="umu-run",
+        proton_version="/path/to/proton/Experimental",
+        game_id="123456",
+        prefix_path="/path/to/wineprefix",
+        launch_options=["-dx11", "-windowed"],
+        log_output=True
+    )
     print(f"Successfully launched game with UMU (PID: {process.pid})")
-else:
-    print(f"Launch failed: {error}")
+except Exception as e:
+    print(f"Launch failed: {e}")
 ```
 
 ### 6. SteamGridDB Integration with Advanced Filters
@@ -249,21 +247,21 @@ from SteamForgeLib import SteamForgeLib
 
 API_KEY = "your_steamgriddb_api_key_here"
 
-# Fetch custom icon assets for a game with size and format filtering
-success, images, error = SteamForgeLib.get_sgdb_images_by_name(
-    api_key=API_KEY,
-    game_name="Hades",
-    image_type="icons",           # Options: 'grids', 'heroes', 'logos', 'icons'
-    sizes=["512x512"],            # Filter by exact dimensions
-    filetypes=["png", "ico"]      # Filter by file extension
-)
+try:
+    # Fetch custom icon assets for a game with size and format filtering
+    images = SteamForgeLib.get_sgdb_images_by_name(
+        api_key=API_KEY,
+        game_name="Hades",
+        image_type="icons",           # Options: 'grids', 'heroes', 'logos', 'icons'
+        sizes=["512x512"],            # Filter by exact dimensions
+        filetypes=["png", "ico"]      # Filter by file extension
+    )
 
-if success:
     print(f"Retrieved {len(images)} matching icon(s):")
     for img in images:
         print(f" - ID: {img['id']} | Dimensions: {img['width']}x{img['height']} | URL: {img['url']}")
-else:
-    print(f"SteamGridDB query failed: {error}")
+except Exception as e:
+    print(f"SteamGridDB query failed: {e}")
 ```
 
 ---
@@ -272,19 +270,19 @@ else:
 
 | Method | Return Type | Description |
 | --- | --- | --- |
-| `SteamForgeLib.parse_steam_login_users(vdf_path)` | `tuple[bool, list, int, str]` | Parses `loginusers.vdf` and extracts account dicts with ID64/ID32. |
-| `SteamForgeLib.create_config(file_path, initial_data, overwrite)` | `tuple[bool, str, str]` | Creates a new JSON configuration file. |
-| `SteamForgeLib.read_config(file_path)` | `tuple[bool, dict, str]` | Reads and parses a JSON configuration file. |
-| `SteamForgeLib.write_config(file_path, data, indent)` | `tuple[bool, str]` | Dumps dictionary data into a JSON configuration file. |
-| `SteamForgeLib.update_config_value(file_path, key_path, value)` | `tuple[bool, str]` | Updates a single config value using dot notation. |
-| `SteamForgeLib.update_config_values(file_path, updates)` | `tuple[bool, str]` | Batch updates multiple config keys simultaneously. |
+| `SteamForgeLib.parse_steam_login_users(vdf_path)` | `list` | Parses `loginusers.vdf` and extracts account dicts with ID64/ID32. |
+| `SteamForgeLib.create_config(file_path, initial_data, overwrite)` | `str` | Creates a new JSON configuration file and returns its absolute path. |
+| `SteamForgeLib.read_config(file_path)` | `dict` | Reads and parses a JSON configuration file. |
+| `SteamForgeLib.write_config(file_path, data, indent)` | `None` | Dumps dictionary data into a JSON configuration file atomically. |
+| `SteamForgeLib.update_config_value(file_path, key_path, value)` | `None` | Updates a single config value using dot notation. |
+| `SteamForgeLib.update_config_values(file_path, updates)` | `None` | Batch updates multiple config keys simultaneously. |
 | `SteamForgeLib.is_steam_running()` | `bool` | Checks active OS processes via `psutil` for Steam instances. |
-| `SteamForgeLib.launch_with_umu(target_exe, ...)` | `tuple[bool, subprocess.Popen, str]` | Launches a Windows `.exe` using `umu-run` with custom Proton & WINEPREFIX. |
-| `SteamForgeLib.read_shortcuts(steam_id_32, vdf_path)` | `tuple[bool, dict, int, str]` | Reads binary `shortcuts.vdf` for a given Steam user. |
-| `SteamForgeLib.write_shortcuts(steam_id_32, dict, vdf_path)` | `tuple[bool, str]` | Dumps shortcut records back to binary VDF format. |
-| `SteamForgeLib.add_shortcut(steam_id_32, shortcut_data, path)` | `tuple[bool, str]` | Appends a new non-Steam shortcut entry. |
-| `SteamForgeLib.edit_shortcut(steam_id_32, index, updates, path)` | `tuple[bool, str]` | Modifies an existing shortcut by numeric index. |
-| `SteamForgeLib.remove_shortcut(steam_id_32, index, path)` | `tuple[bool, str]` | Removes a shortcut and auto-re-indexes remaining items. |
-| `SteamForgeLib.search_sgdb_game(api_key, game_name)` | `tuple[bool, dict, str]` | Autocomplete searches SteamGridDB for game details. |
-| `SteamForgeLib.get_sgdb_images_by_id(api_key, id, type, ...)` | `tuple[bool, list, str]` | Fetches game assets by ID with size and filetype filtering. |
-| `SteamForgeLib.get_sgdb_images_by_name(api_key, name, type, ...)` | `tuple[bool, list, str]` | Convenience wrapper resolving a game name to fetch filtered assets. |
+| `SteamForgeLib.launch_with_umu(target_exe, ...)` | `subprocess.Popen` | Launches a Windows `.exe` using `umu-run` with custom Proton & WINEPREFIX. |
+| `SteamForgeLib.read_shortcuts(steam_id_32, vdf_path)` | `dict` | Reads binary `shortcuts.vdf` for a given Steam user. |
+| `SteamForgeLib.write_shortcuts(steam_id_32, dict, vdf_path)` | `None` | Dumps shortcut records back to binary VDF format. |
+| `SteamForgeLib.add_shortcut(steam_id_32, shortcut_data, path)` | `None` | Appends a new non-Steam shortcut entry. |
+| `SteamForgeLib.edit_shortcut(steam_id_32, index, updates, path)` | `None` | Modifies an existing shortcut by numeric index. |
+| `SteamForgeLib.remove_shortcut(steam_id_32, index, path)` | `None` | Removes a shortcut and auto-re-indexes remaining items. |
+| `SteamForgeLib.search_sgdb_game(api_key, game_name)` | `dict` | Autocomplete searches SteamGridDB for game details. |
+| `SteamForgeLib.get_sgdb_images_by_id(api_key, id, type, ...)` | `list` | Fetches game assets by ID with size and filetype filtering. |
+| `SteamForgeLib.get_sgdb_images_by_name(api_key, name, type, ...)` | `list` | Convenience wrapper resolving a game name to fetch filtered assets. |
