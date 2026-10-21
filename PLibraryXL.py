@@ -2,11 +2,13 @@
 import os
 import json
 import vdf
+import psutil
 
 class PLibraryXL:
     """
-    PLibraryXL combines Steam loginusers.vdf parsing and JSON configuration management
-    into a single, clean object-oriented Python library.
+    PLibraryXL combines Steam loginusers.vdf parsing, JSON configuration management,
+    binary Steam shortcuts management, and process monitoring into a single,
+    clean object-oriented Python library.
     """
 
     @staticmethod
@@ -159,3 +161,134 @@ class PLibraryXL:
             return cls.write_config(file_path, config)
         except Exception as e:
             return False, f"Error updating multiple config values: {str(e)}"
+
+    @staticmethod
+    def is_steam_running() -> bool:
+        """
+        Reliably checks if the main Steam client is currently running on the system
+        by inspecting active OS processes using `psutil`.
+        """
+        # Stricter set of exact process names for the main Steam client
+        steam_process_names = {"steam", "steam.exe"}
+        try:
+            for proc in psutil.process_iter(attrs=["name"]):
+                try:
+                    name = proc.info.get("name")
+                    if name and name.lower() in steam_process_names:
+                        return True
+                except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+                    continue
+            return False
+        except Exception:
+            return False
+
+    # ==========================================
+    # STEAM SHORTCUTS MANAGEMENT (shortcuts.vdf)
+    # ==========================================
+
+    @staticmethod
+    def get_shortcuts_path(steam_id_32: int, base_steam_path: str = "/home/deck/.local/share/Steam") -> str:
+        """Returns the absolute path to a user's shortcuts.vdf file based on their 32-bit Steam ID."""
+        return os.path.join(base_steam_path, "userdata", str(steam_id_32), "config", "shortcuts.vdf")
+
+    @classmethod
+    def read_shortcuts(cls, steam_id_32: int, vdf_path: str = None):
+        """
+        Reads and parses the binary shortcuts.vdf file for a specific 32-bit Steam user ID.
+        Returns a tuple: (success: bool, shortcuts: dict, count: int, error_message: str | None)
+        """
+        path = vdf_path or cls.get_shortcuts_path(steam_id_32)
+        if not os.path.exists(path):
+            return False, {}, 0, f"shortcuts.vdf not found for user ID {steam_id_32} at: {path}"
+
+        try:
+            with open(path, "rb") as f:
+                data = vdf.binary_load(f)
+            
+            shortcuts = data.get("shortcuts", {})
+            return True, shortcuts, len(shortcuts), None
+        except PermissionError:
+            return False, {}, 0, f"Permission denied when trying to read shortcuts at: {path}"
+        except Exception as e:
+            return False, {}, 0, f"An unexpected error occurred while parsing shortcuts.vdf: {str(e)}"
+
+    @classmethod
+    def write_shortcuts(cls, steam_id_32: int, shortcuts_dict: dict, vdf_path: str = None):
+        """Writes configuration data back to the binary shortcuts.vdf file."""
+        path = vdf_path or cls.get_shortcuts_path(steam_id_32)
+        try:
+            dir_name = os.path.dirname(path)
+            if dir_name and not os.path.exists(dir_name):
+                os.makedirs(dir_name, exist_ok=True)
+            
+            payload = {"shortcuts": shortcuts_dict}
+            with open(path, "wb") as f:
+                vdf.binary_dump(payload, f)
+            return True, None
+        except Exception as e:
+            return False, f"Error writing shortcuts file: {str(e)}"
+
+    @classmethod
+    def add_shortcut(cls, steam_id_32: int, shortcut_data: dict, vdf_path: str = None):
+        """
+        Adds a new non-Steam shortcut for the specified 32-bit Steam user.
+        Returns a tuple: (success: bool, error_message: str | None)
+        """
+        success, shortcuts, _, error = cls.read_shortcuts(steam_id_32, vdf_path)
+        if not success and "not found" not in str(error):
+            return False, f"Failed to read existing shortcuts: {error}"
+        
+        if not success:
+            shortcuts = {}
+
+        # Determine the next sequential string index (e.g., "0", "1", "2")
+        existing_indices = [int(k) for k in shortcuts.keys() if k.isdigit()]
+        next_index = str(max(existing_indices) + 1) if existing_indices else "0"
+
+        shortcuts[next_index] = shortcut_data
+        return cls.write_shortcuts(steam_id_32, shortcuts, vdf_path)
+
+    @classmethod
+    def edit_shortcut(cls, steam_id_32: int, index: int, updates: dict, vdf_path: str = None):
+        """
+        Edits an existing shortcut by its numeric index.
+        Returns a tuple: (success: bool, error_message: str | None)
+        """
+        success, shortcuts, _, error = cls.read_shortcuts(steam_id_32, vdf_path)
+        if not success:
+            return False, f"Cannot edit shortcut: {error}"
+
+        idx_str = str(index)
+        if idx_str not in shortcuts:
+            return False, f"Shortcut with index {index} does not exist."
+
+        shortcuts[idx_str].update(updates)
+        return cls.write_shortcuts(steam_id_32, shortcuts, vdf_path)
+
+    @classmethod
+    def remove_shortcut(cls, steam_id_32: int, index: int, vdf_path: str = None):
+        """
+        Removes a shortcut by its numeric index and automatically re-indexes 
+        the remaining entries sequentially as Steam expects.
+        Returns a tuple: (success: bool, error_message: str | None)
+        """
+        success, shortcuts, _, error = cls.read_shortcuts(steam_id_32, vdf_path)
+        if not success:
+            return False, f"Cannot remove shortcut: {error}"
+
+        idx_str = str(index)
+        if idx_str not in shortcuts:
+            return False, f"Shortcut with index {index} does not exist."
+
+        # Re-index all items excluding the deleted one to ensure sequential indexing
+        sorted_keys = sorted([k for k in shortcuts.keys() if k.isdigit()], key=int)
+        new_shortcuts = {}
+        new_idx = 0
+
+        for k in sorted_keys:
+            if k == idx_str:
+                continue
+            new_shortcuts[str(new_idx)] = shortcuts[k]
+            new_idx += 1
+
+        return cls.write_shortcuts(steam_id_32, new_shortcuts, vdf_path)
