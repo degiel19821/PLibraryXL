@@ -1,14 +1,16 @@
 #!/usr/bin/env python3
 import os
 import json
+import urllib.request
+import urllib.parse
 import vdf
 import psutil
 
 class PLibraryXL:
     """
     PLibraryXL combines Steam loginusers.vdf parsing, JSON configuration management,
-    binary Steam shortcuts management, and process monitoring into a single,
-    clean object-oriented Python library.
+    binary Steam shortcuts management, SteamGridDB API integration, and process 
+    monitoring into a single, clean object-oriented Python library.
     """
 
     @staticmethod
@@ -168,7 +170,6 @@ class PLibraryXL:
         Reliably checks if the main Steam client is currently running on the system
         by inspecting active OS processes using `psutil`.
         """
-        # Stricter set of exact process names for the main Steam client
         steam_process_names = {"steam", "steam.exe"}
         try:
             for proc in psutil.process_iter(attrs=["name"]):
@@ -241,7 +242,6 @@ class PLibraryXL:
         if not success:
             shortcuts = {}
 
-        # Determine the next sequential string index (e.g., "0", "1", "2")
         existing_indices = [int(k) for k in shortcuts.keys() if k.isdigit()]
         next_index = str(max(existing_indices) + 1) if existing_indices else "0"
 
@@ -280,7 +280,6 @@ class PLibraryXL:
         if idx_str not in shortcuts:
             return False, f"Shortcut with index {index} does not exist."
 
-        # Re-index all items excluding the deleted one to ensure sequential indexing
         sorted_keys = sorted([k for k in shortcuts.keys() if k.isdigit()], key=int)
         new_shortcuts = {}
         new_idx = 0
@@ -292,3 +291,61 @@ class PLibraryXL:
             new_idx += 1
 
         return cls.write_shortcuts(steam_id_32, new_shortcuts, vdf_path)
+
+    # ==========================================
+    # STEAMGRIDDB API INTEGRATION
+    # ==========================================
+
+    @classmethod
+    def search_sgdb_game(cls, api_key: str, game_name: str):
+        """
+        Searches SteamGridDB for a game by name.
+        Returns a tuple: (success: bool, game_data: dict | None, error_message: str | None)
+        """
+        encoded_name = urllib.parse.quote(game_name)
+        url = f"https://www.steamgriddb.com/api/v2/search/autocomplete/{encoded_name}"
+        
+        req = urllib.request.Request(url, headers={"Authorization": f"Bearer {api_key}", "User-Agent": "PLibraryXL/1.0"})
+        try:
+            with urllib.request.urlopen(req) as response:
+                data = json.loads(response.read().decode("utf-8"))
+                if data.get("success") and data.get("data"):
+                    return True, data["data"][0], None
+                return False, None, "No games found matching that name."
+        except Exception as e:
+            return False, None, f"SteamGridDB search error: {str(e)}"
+
+    @classmethod
+    def get_sgdb_images_by_id(cls, api_key: str, game_id: int, image_type: str = "grids"):
+        """
+        Retrieves images for a specific SteamGridDB game ID.
+        image_type can be: 'grids', 'heroes', 'logos', or 'icons'.
+        Returns a tuple: (success: bool, images: list, error_message: str | None)
+        """
+        url = f"https://www.steamgriddb.com/api/v2/{image_type}/game/{game_id}"
+        
+        req = urllib.request.Request(url, headers={"Authorization": f"Bearer {api_key}", "User-Agent": "PLibraryXL/1.0"})
+        try:
+            with urllib.request.urlopen(req) as response:
+                data = json.loads(response.read().decode("utf-8"))
+                if data.get("success"):
+                    return True, data.get("data", []), None
+                return False, [], f"Failed to retrieve {image_type}."
+        except Exception as e:
+            return False, [], f"SteamGridDB image retrieval error: {str(e)}"
+
+    @classmethod
+    def get_sgdb_images_by_name(cls, api_key: str, game_name: str, image_type: str = "grids"):
+        """
+        Convenience method that resolves a game name to an ID and fetches its images.
+        Returns a tuple: (success: bool, images: list, error_message: str | None)
+        """
+        success, game_data, error = cls.search_sgdb_game(api_key, game_name)
+        if not success:
+            return False, [], f"Game resolution failed: {error}"
+
+        game_id = game_data.get("id")
+        if not game_id:
+            return False, [], "Invalid game data returned from search."
+
+        return cls.get_sgdb_images_by_id(api_key, game_id, image_type)

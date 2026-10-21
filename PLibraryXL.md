@@ -1,6 +1,6 @@
 # PLibraryXL
 
-`PLibraryXL` is a robust, lightweight, object-oriented Python library that combines Steam `loginusers.vdf` parsing, JSON configuration management, binary Steam shortcuts management (`shortcuts.vdf`), and system process monitoring into a single, cohesive class. It is designed to be easily imported into any Python project without requiring any command-line interface (CLI) boilerplate.
+`PLibraryXL` is a robust, lightweight, object-oriented Python library that combines Steam `loginusers.vdf` parsing, JSON configuration management, binary Steam shortcuts management (`shortcuts.vdf`), system process monitoring via `psutil`, and SteamGridDB API integration into a single, cohesive class. It is designed to be easily imported into any Python project without requiring any command-line interface (CLI) boilerplate.
 
 ---
 
@@ -11,6 +11,7 @@
 - **Batch Config Updates:** Update multiple top-level or nested configuration values simultaneously in a single read-and-write pass.
 - **Binary Steam Shortcuts Management:** Read, write, add, edit, and remove non-Steam game shortcuts (`shortcuts.vdf`) with automatic sequential re-indexing.
 - **Process Monitoring:** Reliably verify whether the main Steam client is currently active on the system using `psutil`.
+- **SteamGridDB API Integration:** Search games and fetch custom assets (`grids`, `heroes`, `logos`, `icons`) directly from SteamGridDB using an API key.
 - **Pure Library Design:** Completely independent of command-line arguments or `argparse`, making it purely modular for programmatic integration.
 
 ---
@@ -206,4 +207,51 @@ from plibrary_xl import PLibraryXL
 success, error = PLibraryXL.remove_shortcut(12345678, index=1)
 if success:
     print("Shortcut removed and list re-indexed.")
+```
+
+---
+
+### 8. SteamGridDB API Integration
+
+#### Searching for a Game
+```python
+from plibrary_xl import PLibraryXL
+
+api_key = "YOUR_STEAMGRIDDB_API_KEY"
+success, game_data, error = PLibraryXL.search_sgdb_game(api_key, "Cyberpunk 2077")
+
+if success:
+    print(f"Found Game: {game_data.get('name')} (ID: {game_data.get('id')})")
+else:
+    print(f"Search failed: {error}")
+```
+
+#### Retrieving Images by Game ID
+```python
+from plibrary_xl import PLibraryXL
+
+api_key = "YOUR_STEAMGRIDDB_API_KEY"
+game_id = 123455  # Example SteamGridDB game ID
+# image_type can be: 'grids', 'heroes', 'logos', or 'icons'
+success, images, error = PLibraryXL.get_sgdb_images_by_id(api_key, game_id, image_type="grids")
+
+if success:
+    print(f"Retrieved {len(images)} grid image(s).")
+    for img in images[:3]:
+        print(f"Image URL: {img.get('url')}")
+else:
+    print(f"Image retrieval failed: {error}")
+```
+
+#### Retrieving Images by Game Name (Convenience Method)
+```python
+from plibrary_xl import PLibraryXL
+
+api_key = "YOUR_STEAMGRIDDB_API_KEY"
+success, images, error = PLibraryXL.get_sgdb_images_by_name(api_key, "Hades", image_type="logos")
+
+if success:
+    print(f"Retrieved {len(images)} logo image(s) for Hades.")
+else:
+    print(f"Failed: {error}")
 ```
