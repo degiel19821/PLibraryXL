@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import os
+import subprocess
 import json
 import urllib.request
 import urllib.parse
@@ -163,6 +164,88 @@ class SteamForgeLib:
             return cls.write_config(file_path, config)
         except Exception as e:
             return False, f"Error updating multiple config values: {str(e)}"
+
+
+    # ==========================================
+    # UMU / PROTON LAUNCHER INTEGRATION
+    # ==========================================
+
+    @classmethod
+    def launch_with_umu(
+        cls,
+        target_exe: str,
+        umu_run_path: str = "umu-run",
+        proton_version: str = "",
+        game_id: str = "0",
+        prefix_path: str = "",
+        launch_options: list = None,
+        log_output: bool = True
+    ):
+        """
+        Directly launches a Windows executable using umu-launcher (umu-run) with custom parameters.
+        
+        Parameters:
+        - target_exe: Path to the Windows .exe to execute
+        - umu_run_path: Path to umu-run binary (default 'umu-run')
+        - proton_version: Proton version identifier or path (sets PROTONPATH)
+        - game_id: UMU Game ID or Steam AppID
+        - prefix_path: Custom WINEPREFIX path
+        - launch_options: List of additional command-line arguments for the game
+        - log_output: Whether to capture and log stdout/stderr to avoid terminal clutter
+        
+        Returns:
+        - tuple: (success: bool, process: subprocess.Popen | None, error_message: str | None)
+        """
+        if launch_options is None:
+            launch_options = []
+            
+        exe_path = os.path.abspath(target_exe)
+        if not os.path.exists(exe_path):
+            return False, None, f"Target executable not found: {target_exe}"
+        if not os.path.isfile(exe_path):
+            return False, None, f"Target path is not a file: {target_exe}"
+
+        if prefix_path:
+            prefix_dir = os.path.dirname(os.path.abspath(prefix_path))
+            if prefix_dir and not os.path.exists(prefix_dir):
+                return False, None, f"Parent directory for WINEPREFIX does not exist: {prefix_dir}"
+
+        if proton_version and os.path.isdir(proton_version):
+            has_wine = os.path.exists(os.path.join(proton_version, "files", "bin", "wine"))
+            has_proton = os.path.exists(os.path.join(proton_version, "proton"))
+            if not has_wine and not has_proton:
+                # Warning only, doesn't hard fail since custom proton wrappers might differ
+                pass
+
+        env = os.environ.copy()
+        if game_id:
+            env["GAMEID"] = str(game_id)
+        if proton_version:
+            env["PROTONPATH"] = str(proton_version)
+        if prefix_path:
+            env["WINEPREFIX"] = str(prefix_path)
+            
+        cmd = [umu_run_path, exe_path] + launch_options
+        
+        try:
+            stdout_dest = subprocess.PIPE if log_output else None
+            stderr_dest = subprocess.PIPE if log_output else None
+
+            process = subprocess.Popen(
+                cmd, 
+                env=env,
+                stdout=stdout_dest,
+                stderr=stderr_dest,
+                start_new_session=True
+            )
+            return True, process, None
+
+        except FileNotFoundError:
+            return False, None, f"The umu-run binary ('{umu_run_path}') could not be found. Ensure it is installed and in your PATH."
+        except PermissionError:
+            return False, None, f"Permission denied when attempting to execute: {umu_run_path}"
+        except Exception as e:
+            return False, None, f"Unexpected error launching with umu: {str(e)}"
 
     @staticmethod
     def is_steam_running() -> bool:
