@@ -1,26 +1,26 @@
 # PLibraryXL
 
-`PLibraryXL` is a robust, lightweight, object-oriented Python library that combines Steam `loginusers.vdf` parsing and JSON configuration management into a single, cohesive class. It is designed to be easily imported into any Python project without requiring any command-line interface (CLI) boilerplate.
+`PLibraryXL` is a robust, lightweight, object-oriented Python library that combines Steam `loginusers.vdf` parsing, JSON configuration management, binary Steam shortcuts management (`shortcuts.vdf`), and system process monitoring into a single, cohesive class. It is designed to be easily imported into any Python project without requiring any command-line interface (CLI) boilerplate.
 
 ---
 
 ## Features
 
-- **Steam VDF Parsing:** Safely reads and parses Steam's `loginusers.vdf` configuration files.
-- **Dual Identifiers:** Automatically calculates both `SteamID64` and `SteamID32` for each discovered account.
-- **JSON Configuration Management:** Create, read, write, and update configuration files seamlessly.
-- **Nested Key Support:** Modify deeply nested configuration keys using dot notation (e.g., `settings.theme`).
-- **Batch Updates:** Update multiple top-level or nested configuration values simultaneously in a single read-and-write pass.
+- **Steam VDF Parsing:** Safely reads and parses Steam's `loginusers.vdf` configuration files, automatically deriving both `SteamID64` and `SteamID32`.
+- **JSON Configuration Management:** Create, read, write, and update configuration files seamlessly with full support for nested keys via dot notation.
+- **Batch Config Updates:** Update multiple top-level or nested configuration values simultaneously in a single read-and-write pass.
+- **Binary Steam Shortcuts Management:** Read, write, add, edit, and remove non-Steam game shortcuts (`shortcuts.vdf`) with automatic sequential re-indexing.
+- **Process Monitoring:** Reliably verify whether the main Steam client is currently active on the system using `psutil`.
 - **Pure Library Design:** Completely independent of command-line arguments or `argparse`, making it purely modular for programmatic integration.
 
 ---
 
 ## Installation & Prerequisites
 
-This library relies on the `vdf` package for parsing Steam configuration files. Install it via pip:
+This library relies on the `vdf` and `psutil` packages. Install them via pip:
 
 ```bash
-pip install vdf
+pip install vdf psutil
 ```
 
 Place `plibrary_xl.py` in your project directory and import it as needed.
@@ -84,16 +84,18 @@ if success:
 
 ---
 
-### 3. Reading Configurations
+### 3. Reading & Writing Configurations
 
 ```python
 from plibrary_xl import PLibraryXL
 
+# Read config
 success, data, error = PLibraryXL.read_config("config.json")
 if success:
     print("Current configuration:", data)
-else:
-    print(f"Error reading config: {error}")
+
+# Write custom config dictionary directly
+success, error = PLibraryXL.write_config("config.json", data)
 ```
 
 ---
@@ -126,4 +128,82 @@ if success:
     print("Successfully updated multiple values!")
 else:
     print(f"Failed to update: {error}")
+```
+
+---
+
+### 6. Process Monitoring
+
+```python
+from plibrary_xl import PLibraryXL
+
+# Check if the Steam client is currently running
+if PLibraryXL.is_steam_running():
+    print("Steam client is currently running.")
+else:
+    print("Steam client is not running.")
+```
+
+---
+
+### 7. Binary Steam Shortcuts Management (`shortcuts.vdf`)
+
+#### Reading Shortcuts
+```python
+from plibrary_xl import PLibraryXL
+
+steam_id_32 = 12345678  # Replace with actual 32-bit Steam ID
+success, shortcuts, count, error = PLibraryXL.read_shortcuts(steam_id_32)
+
+if success:
+    print(f"Found {count} non-Steam shortcut(s):")
+    for idx, shortcut in shortcuts.items():
+        print(f"[{idx}] {shortcut.get('appname')} - {shortcut.get('exe')}")
+```
+
+#### Adding a Shortcut
+```python
+from plibrary_xl import PLibraryXL
+
+new_shortcut = {
+    "appname": "My Custom Game",
+    "exe": "/path/to/game/executable",
+    "StartDir": "/path/to/game/",
+    "icon": "",
+    "ShortcutPath": "",
+    "LaunchOptions": "",
+    "IsHidden": 0,
+    "AllowDesktopConfig": 1,
+    "AllowOverlay": 1,
+    "OpenVR": 0,
+    "Devkit": 0,
+    "DevkitGameID": "",
+    "DevkitOverrideAppID": 0,
+    "LastPlayTime": 0,
+    "tags": {}
+}
+
+success, error = PLibraryXL.add_shortcut(12345678, new_shortcut)
+if success:
+    print("Shortcut added successfully!")
+```
+
+#### Editing a Shortcut
+```python
+from plibrary_xl import PLibraryXL
+
+# Edit shortcut at index 0
+success, error = PLibraryXL.edit_shortcut(12345678, index=0, updates={
+    "LaunchOptions": "-fullscreen"
+})
+```
+
+#### Removing a Shortcut
+```python
+from plibrary_xl import PLibraryXL
+
+# Removes the shortcut and automatically re-indexes remaining entries
+success, error = PLibraryXL.remove_shortcut(12345678, index=1)
+if success:
+    print("Shortcut removed and list re-indexed.")
 ```
