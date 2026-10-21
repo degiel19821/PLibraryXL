@@ -6,7 +6,7 @@ import urllib.parse
 import vdf
 import psutil
 
-class PLibraryXL:
+class SteamForgeLib:
     """
     PLibraryXL combines Steam loginusers.vdf parsing, JSON configuration management,
     binary Steam shortcuts management, SteamGridDB API integration, and process 

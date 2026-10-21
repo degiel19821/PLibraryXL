@@ -1,0 +1,9 @@
+{
+    "settings": {
+        "graphics": {
+            "resolution": "1920x1080",
+            "fullscreen": true
+        },
+        "volume": 80
+    }
+}

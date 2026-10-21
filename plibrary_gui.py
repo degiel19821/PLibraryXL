@@ -12,7 +12,7 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Qt, QByteArray
 from PySide6.QtGui import QPixmap, QImage
 
-from plibrary_xl import PLibraryXL
+from SteamForgeLib import SteamForgeLib
 
 class ShortcutDialog(QDialog):
     def __init__(self, parent=None, shortcut_data=None):
@@ -134,11 +134,11 @@ class ShortcutDialog(QDialog):
         }
 
 
-class PLibraryXLTestGUI(QMainWindow):
+class SteamForgeLibTestGUI(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("PLibraryXL Feature Tester & GUI")
-        self.resize(1350, 900)
+        self.setWindowTitle("SteamForgeLib Feature Tester & GUI")
+        self.resize(1350, 950)
 
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
@@ -160,7 +160,7 @@ class PLibraryXLTestGUI(QMainWindow):
         log_layout.addWidget(self.log_text)
         main_layout.addWidget(log_group)
 
-        self.log("PLibraryXL GUI initialized successfully with full shortcut fields support.")
+        self.log("SteamForgeLib GUI initialized successfully with SteamGridDB filtering support.")
 
     def log(self, message: str):
         self.log_text.append(message)
@@ -213,7 +213,7 @@ class PLibraryXLTestGUI(QMainWindow):
         self.tabs.addTab(tab, "Steam Process & Users")
 
     def check_steam_status(self):
-        running = PLibraryXL.is_steam_running()
+        running = SteamForgeLib.is_steam_running()
         status_str = "Running" if running else "Not Running"
         self.lbl_steam_status.setText(f"Steam Status: <b>{status_str}</b>")
         self.log(f"Checked Steam status: {status_str}")
@@ -226,7 +226,7 @@ class PLibraryXLTestGUI(QMainWindow):
     def parse_login_users(self):
         path = self.txt_vdf_path.text()
         self.log(f"Parsing loginusers.vdf from: {path}")
-        success, accounts, count, error = PLibraryXL.parse_steam_login_users(path)
+        success, accounts, count, error = SteamForgeLib.parse_steam_login_users(path)
         
         if not success:
             QMessageBox.critical(self, "Error", error)
@@ -324,7 +324,7 @@ class PLibraryXLTestGUI(QMainWindow):
     def create_config(self):
         path = self.txt_config_path.text()
         initial = {"settings": {"graphics": {"resolution": "1920x1080", "fullscreen": True}, "volume": 80}}
-        success, abs_path, error = PLibraryXL.create_config(path, initial_data=initial, overwrite=True)
+        success, abs_path, error = SteamForgeLib.create_config(path, initial_data=initial, overwrite=True)
         if not success:
             QMessageBox.critical(self, "Error", error)
             self.log(f"Failed to create config: {error}")
@@ -334,7 +334,7 @@ class PLibraryXLTestGUI(QMainWindow):
 
     def read_config(self):
         path = self.txt_config_path.text()
-        success, data, error = PLibraryXL.read_config(path)
+        success, data, error = SteamForgeLib.read_config(path)
         if not success:
             QMessageBox.critical(self, "Error", error)
             self.log(f"Failed to read config: {error}")
@@ -351,7 +351,7 @@ class PLibraryXLTestGUI(QMainWindow):
             QMessageBox.critical(self, "JSON Error", f"Invalid JSON format: {str(e)}")
             return
 
-        success, error = PLibraryXL.write_config(path, data)
+        success, error = SteamForgeLib.write_config(path, data)
         if not success:
             QMessageBox.critical(self, "Error", error)
             self.log(f"Failed to write config: {error}")
@@ -377,7 +377,7 @@ class PLibraryXLTestGUI(QMainWindow):
         key_path = self.txt_key_path.text()
         val = self.parse_value_type(self.txt_key_value.text())
 
-        success, error = PLibraryXL.update_config_value(path, key_path, val)
+        success, error = SteamForgeLib.update_config_value(path, key_path, val)
         if not success:
             QMessageBox.critical(self, "Error", error)
             self.log(f"Failed to update config key: {error}")
@@ -398,7 +398,7 @@ class PLibraryXLTestGUI(QMainWindow):
 
         updates = {k: self.parse_value_type(str(v)) if not isinstance(v, (bool, int, float)) else v for k, v in updates_raw.items()}
 
-        success, error = PLibraryXL.update_config_values(path, updates)
+        success, error = SteamForgeLib.update_config_values(path, updates)
         if not success:
             QMessageBox.critical(self, "Error", error)
             self.log(f"Failed to perform batch config update: {error}")
@@ -468,10 +468,10 @@ class PLibraryXLTestGUI(QMainWindow):
     def load_shortcuts(self):
         steam_id_32 = self.get_steam_id_32()
         base_path = self.txt_base_steam_path.text()
-        vdf_path = PLibraryXL.get_shortcuts_path(steam_id_32, base_path)
+        vdf_path = SteamForgeLib.get_shortcuts_path(steam_id_32, base_path)
         
         self.log(f"Reading shortcuts from: {vdf_path}")
-        success, shortcuts, count, error = PLibraryXL.read_shortcuts(steam_id_32, vdf_path)
+        success, shortcuts, count, error = SteamForgeLib.read_shortcuts(steam_id_32, vdf_path)
         
         if not success:
             QMessageBox.warning(self, "Notice / Error", error)
@@ -508,12 +508,12 @@ class PLibraryXLTestGUI(QMainWindow):
     def add_shortcut_dialog(self):
         steam_id_32 = self.get_steam_id_32()
         base_path = self.txt_base_steam_path.text()
-        vdf_path = PLibraryXL.get_shortcuts_path(steam_id_32, base_path)
+        vdf_path = SteamForgeLib.get_shortcuts_path(steam_id_32, base_path)
 
         dialog = ShortcutDialog(self)
         if dialog.exec() == QDialog.Accepted:
             new_sc = dialog.get_data()
-            success, error = PLibraryXL.add_shortcut(steam_id_32, new_sc, vdf_path)
+            success, error = SteamForgeLib.add_shortcut(steam_id_32, new_sc, vdf_path)
             if not success:
                 QMessageBox.critical(self, "Error", error)
                 self.log(f"Failed to add shortcut: {error}")
@@ -539,12 +539,12 @@ class PLibraryXLTestGUI(QMainWindow):
 
         steam_id_32 = self.get_steam_id_32()
         base_path = self.txt_base_steam_path.text()
-        vdf_path = PLibraryXL.get_shortcuts_path(steam_id_32, base_path)
+        vdf_path = SteamForgeLib.get_shortcuts_path(steam_id_32, base_path)
 
         dialog = ShortcutDialog(self, shortcut_data=existing_data)
         if dialog.exec() == QDialog.Accepted:
             updated_data = dialog.get_data()
-            success, error = PLibraryXL.edit_shortcut(steam_id_32, idx, updated_data, vdf_path)
+            success, error = SteamForgeLib.edit_shortcut(steam_id_32, idx, updated_data, vdf_path)
             if not success:
                 QMessageBox.critical(self, "Error", error)
                 self.log(f"Failed to edit shortcut: {error}")
@@ -568,9 +568,9 @@ class PLibraryXLTestGUI(QMainWindow):
         idx = int(index_item.text())
         steam_id_32 = self.get_steam_id_32()
         base_path = self.txt_base_steam_path.text()
-        vdf_path = PLibraryXL.get_shortcuts_path(steam_id_32, base_path)
+        vdf_path = SteamForgeLib.get_shortcuts_path(steam_id_32, base_path)
 
-        success, error = PLibraryXL.remove_shortcut(steam_id_32, idx, vdf_path)
+        success, error = SteamForgeLib.remove_shortcut(steam_id_32, idx, vdf_path)
         if not success:
             QMessageBox.critical(self, "Error", error)
             self.log(f"Failed to remove shortcut: {error}")
@@ -609,16 +609,30 @@ class PLibraryXLTestGUI(QMainWindow):
         self.combo_image_type = QComboBox()
         self.combo_image_type.addItems(["grids", "heroes", "logos", "icons"])
 
-        btn_search_sgdb = QPushButton("Fetch Images")
-        btn_search_sgdb.clicked.connect(self.fetch_sgdb_images)
-
         options_layout.addWidget(QLabel("Image Type:"))
-        options_layout.addWidget(self.combo_image_type, stretch=1)
-        options_layout.addWidget(btn_search_sgdb, stretch=2)
+        options_layout.addWidget(self.combo_image_type)
+
+        filters_layout = QHBoxLayout()
+        self.txt_filter_sizes = QLineEdit()
+        self.txt_filter_sizes.setPlaceholderText("e.g. 600x900, 512x512 (comma-separated)")
+        
+        self.txt_filter_filetypes = QLineEdit()
+        self.txt_filter_filetypes.setPlaceholderText("e.g. png, jpg, ico (comma-separated)")
+
+        filters_layout.addWidget(QLabel("Sizes:"))
+        filters_layout.addWidget(self.txt_filter_sizes, stretch=1)
+        filters_layout.addWidget(QLabel("Filetypes:"))
+        filters_layout.addWidget(self.txt_filter_filetypes, stretch=1)
+
+        btn_search_sgdb = QPushButton("Fetch & Filter Images")
+        btn_search_sgdb.clicked.connect(self.fetch_sgdb_images)
 
         api_form.addRow("API Key:", self.txt_sgdb_key)
         api_form.addRow("Query Mode:", query_type_layout)
-        api_form.addRow("Actions:", options_layout)
+        api_form.addRow("Options:", options_layout)
+        api_form.addRow("Filters:", filters_layout)
+        api_form.addRow("Action:", btn_search_sgdb)
+        
         layout.addWidget(api_group)
 
         # Splitter between Table and Image Preview
@@ -663,6 +677,13 @@ class PLibraryXLTestGUI(QMainWindow):
         image_type = self.combo_image_type.currentText()
         mode = self.combo_query_mode.currentIndex()
 
+        # Parse sizes and filetypes filter inputs
+        sizes_raw = self.txt_filter_sizes.text().strip()
+        sizes_list = [s.strip() for s in sizes_raw.split(",")] if sizes_raw else None
+
+        filetypes_raw = self.txt_filter_filetypes.text().strip()
+        filetypes_list = [f.strip() for f in filetypes_raw.split(",")] if filetypes_raw else None
+
         if not api_key:
             QMessageBox.warning(self, "API Key Required", "Please enter your SteamGridDB API key.")
             return
@@ -671,8 +692,10 @@ class PLibraryXLTestGUI(QMainWindow):
             return
 
         if mode == 0:
-            self.log(f"Querying SteamGridDB by name for '{query_text}' ({image_type})...")
-            success, images, error = PLibraryXL.get_sgdb_images_by_name(api_key, query_text, image_type)
+            self.log(f"Querying SteamGridDB by name for '{query_text}' ({image_type}) with filters...")
+            success, images, error = SteamForgeLib.get_sgdb_images_by_name(
+                api_key, query_text, image_type, sizes=sizes_list, filetypes=filetypes_list
+            )
         else:
             try:
                 game_id = int(query_text)
@@ -680,8 +703,10 @@ class PLibraryXLTestGUI(QMainWindow):
                 QMessageBox.critical(self, "Invalid ID", "Game ID must be a valid integer number (e.g. 650).")
                 return
 
-            self.log(f"Querying SteamGridDB directly by ID {game_id} ({image_type})...")
-            success, images, error = PLibraryXL.get_sgdb_images_by_id(api_key, game_id, image_type)
+            self.log(f"Querying SteamGridDB directly by ID {game_id} ({image_type}) with filters...")
+            success, images, error = SteamForgeLib.get_sgdb_images_by_id(
+                api_key, game_id, image_type, sizes=sizes_list, filetypes=filetypes_list
+            )
 
         if not success:
             QMessageBox.critical(self, "SteamGridDB Error", error)
@@ -690,7 +715,7 @@ class PLibraryXLTestGUI(QMainWindow):
             self.lbl_image_preview.setText("No image preview available")
             return
 
-        self.log(f"Successfully retrieved {len(images)} {image_type} items.")
+        self.log(f"Successfully retrieved and filtered {len(images)} {image_type} items.")
         self.table_sgdb.setRowCount(len(images))
 
         for row, img in enumerate(images):
@@ -722,7 +747,7 @@ class PLibraryXLTestGUI(QMainWindow):
             return
 
         try:
-            req = urllib.request.Request(img_url, headers={"User-Agent": "PLibraryXL/1.0"})
+            req = urllib.request.Request(img_url, headers={"User-Agent": "SteamForgeLib/1.0"})
             with urllib.request.urlopen(req, timeout=5) as response:
                 img_data = response.read()
 
@@ -742,6 +767,6 @@ class PLibraryXLTestGUI(QMainWindow):
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
-    window = PLibraryXLTestGUI()
+    window = SteamForgeLibTestGUI()
     window.show()
     sys.exit(app.exec())
