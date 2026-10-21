@@ -14,10 +14,10 @@ This repository also includes a fully-featured **PySide6 graphical user interfac
 2. [Prerequisites & Installation](#prerequisites--installation)
 3. [The Testing & Demonstration GUI (`SteamForgeLibGUI.py`)](#the-testing--demonstration-gui-steamforgelibguippy)
 4. [Core API Usage & Code Examples](#core-api-usage--code-examples)
-   * [1. Parsing Steam Login Users](#1-parsing-steam-login-users)
+   * [1. Parsing Steam Login Users (with Custom VDF Path)](#1-parsing-steam-login-users-with-custom-vdf-path)
    * [2. JSON Configuration Management & Dot-Notation Updates](#2-json-configuration-management--dot-notation-updates)
    * [3. System Process Monitoring](#3-system-process-monitoring)
-   * [4. Managing Binary Steam Shortcuts (`shortcuts.vdf`)](#4-managing-binary-steam-shortcuts-shortcutsvdf)
+   * [4. Managing Binary Steam Shortcuts (`shortcuts.vdf` with Custom Paths)](#4-managing-binary-steam-shortcuts-shortcutsvdf-with-custom-paths)
    * [5. UMU / Proton Launcher Integration](#5-umu--proton-launcher-integration)
    * [6. SteamGridDB Integration with Advanced Filters](#6-steamgriddb-integration-with-advanced-filters)
 5. [API Reference Summary](#api-reference-summary)
@@ -26,10 +26,10 @@ This repository also includes a fully-featured **PySide6 graphical user interfac
 
 ## Features Overview
 
-* **Steam VDF Parsing:** Safely reads and parses Steam's `loginusers.vdf` configuration file, automatically computing both `SteamID64` and `SteamID32`.
+* **Steam VDF Parsing:** Safely reads and parses Steam's `loginusers.vdf` configuration file, with full support for custom file paths, automatically computing both `SteamID64` and `SteamID32`.
 * **JSON Configuration Engine:** Create, read, write, and manipulate JSON config files with advanced dot-notation key paths (e.g., `settings.graphics.resolution`).
 * **Batch Configuration Updates:** Update multiple configuration values simultaneously in a single transaction.
-* **Binary Steam Shortcuts (`shortcuts.vdf`):** Full CRUD support for non-Steam game shortcuts, complete with automatic sequential re-indexing and multi-field management (launch options, flags, VR, tags).
+* **Binary Steam Shortcuts (`shortcuts.vdf`):** Full CRUD support for non-Steam game shortcuts, complete with automatic sequential re-indexing, multi-field management, and custom VDF path overrides.
 * **System Process Monitoring:** Quickly verify whether the official Steam client is active on the host OS via `psutil`.
 * **UMU / Proton Integration:** Directly launch Windows executables using `umu-launcher` (`umu-run`) with custom Proton versions, WINEPREFIX paths, and game identifiers.
 * **SteamGridDB Integration:** Query games via autocomplete search or direct ID lookup, fetch assets (`grids`, `heroes`, `logos`, `icons`), and apply filters for image dimensions and file types (`png`, `ico`, `jpg`).
@@ -85,15 +85,15 @@ The companion GUI application (`SteamForgeLibGUI.py`) serves as an interactive t
 
 ### Tab 1: Steam Process & Users
 * **Process Monitoring:** Click **"Check if Steam is Running"** to execute `SteamForgeLib.is_steam_running()` and instantly check process states via `psutil`.
-* **Login Users:** Specify or browse to your `loginusers.vdf` file. Clicking **"Parse Login Users"** invokes `SteamForgeLib.parse_steam_login_users()`, populating a detailed table with account identifiers, persona names, and login preferences.
+* **Login Users:** Specify or browse to any custom `loginusers.vdf` file path. Clicking **"Parse Login Users"** invokes `SteamForgeLib.parse_steam_login_users(vdf_path)`, populating a detailed table with account identifiers, persona names, and login preferences.
 
 ### Tab 2: JSON Config Management
 * **File Operations:** Create pre-populated test configurations, load existing files, or edit JSON content directly in the embedded text editor.
 * **Single & Batch Updates:** Test dot-notation updates (`settings.graphics.fullscreen`) or provide a JSON dictionary of multiple updates to test batch transactions.
 
 ### Tab 3: Steam Shortcuts Management
-* **Target Selection:** Configure the target `SteamID32` and base Steam path to locate user-specific `shortcuts.vdf` files.
-* **Interactive Dialogs:** Load, view, add, or edit non-Steam shortcuts across all binary fields (executable paths, tags, start directories, hidden/overlay flags). Deleting entries automatically re-indexes remaining shortcuts.
+* **Target Selection:** Configure the target `SteamID32` and custom base Steam paths or direct VDF file paths to locate user-specific `shortcuts.vdf` files.
+* **Interactive Dialogs:** Load, view, add, or edit non-Steam shortcuts across all binary fields. Deleting entries automatically re-indexes remaining shortcuts.
 
 ### Tab 4: UMU / Proton Launcher Integration
 * **Launcher Testing:** Configure a target executable, `umu-run` path, Proton version, game ID, WINEPREFIX, and launch arguments to visually test running isolated Windows programs on Linux via the library wrapper.
@@ -106,21 +106,29 @@ The companion GUI application (`SteamForgeLibGUI.py`) serves as an interactive t
 
 ## Core API Usage & Code Examples
 
-### 1. Parsing Steam Login Users
+### 1. Parsing Steam Login Users (with Custom VDF Path)
 
-Read local Steam account configurations to extract user IDs and profile info.
+Read local Steam account configurations from default or custom VDF file paths to extract user IDs and profile info.
 
 ```python
 from SteamForgeLib import SteamForgeLib
 
+# Example A: Using the default Linux Steam path (/home/deck/.local/share/Steam/config/loginusers.vdf)
 try:
-    # Parse login users from the default path (or pass a custom vdf_path)
     accounts = SteamForgeLib.parse_steam_login_users()
-    print(f"Found {len(accounts)} Steam account(s):")
+    print(f"Found {len(accounts)} Steam account(s) from default path.")
+except Exception as e:
+    print(f"Failed to parse default login users: {e}")
+
+# Example B: Providing a custom VDF file path (e.g., Windows backup, flatpak, or custom mount)
+custom_vdf_path = "/mnt/backup/Steam/config/loginusers.vdf"
+try:
+    accounts = SteamForgeLib.parse_steam_login_users(vdf_path=custom_vdf_path)
+    print(f"Found {len(accounts)} Steam account(s) from custom path:")
     for acc in accounts:
         print(f" - {acc['AccountName']} (ID64: {acc['SteamID64']}, ID32: {acc['SteamID32']})")
 except Exception as e:
-    print(f"Failed to parse login users: {e}")
+    print(f"Failed to parse custom login users path: {e}")
 ```
 
 ### 2. JSON Configuration Management & Dot-Notation Updates
@@ -173,30 +181,38 @@ else:
     print("Steam client is not running.")
 ```
 
-### 4. Managing Binary Steam Shortcuts (`shortcuts.vdf`)
+### 4. Managing Binary Steam Shortcuts (`shortcuts.vdf` with Custom Paths)
 
-Read, add, edit, and remove non-Steam game shortcuts for a specific Steam user account.
+Read, add, edit, and remove non-Steam game shortcuts using standard user IDs or custom VDF file overrides.
 
 ```python
 from SteamForgeLib import SteamForgeLib
 
 steam_id_32 = 12345678  # Replace with the user's 32-bit Steam ID
 
-# 1. Read existing shortcuts
+# Example A: Using standard base steam path resolution
 try:
     shortcuts = SteamForgeLib.read_shortcuts(steam_id_32)
-    print(f"Loaded {len(shortcuts)} non-Steam shortcuts.")
-except Exception:
-    print("No existing shortcuts found or failed to read.")
+    print(f"Loaded {len(shortcuts)} shortcuts from default userdata directory.")
+except Exception as e:
+    print(f"Notice: {e}")
 
-# 2. Add a new non-Steam shortcut
+# Example B: Overriding with a custom shortcuts.vdf file path directly
+custom_shortcuts_path = "/home/deck/.var/app/com.valvesoftware.Steam/.local/share/Steam/userdata/12345678/config/shortcuts.vdf"
+try:
+    shortcuts = SteamForgeLib.read_shortcuts(steam_id_32, vdf_path=custom_shortcuts_path)
+    print(f"Loaded {len(shortcuts)} shortcuts from custom flatpak path.")
+except Exception as e:
+    print(f"Failed to read custom shortcuts path: {e}")
+
+# Adding a new shortcut with the custom path override
 new_shortcut = {
-    "appname": "My Custom Emulator",
-    "exe": '"/usr/bin/emu"',
+    "appname": "My Custom Game",
+    "exe": '"/usr/bin/mygame"',
     "StartDir": '"/usr/bin"',
     "icon": "",
     "ShortcutPath": "",
-    "LaunchOptions": "-roms /path/to/roms",
+    "LaunchOptions": "",
     "IsHidden": 0,
     "AllowDesktopConfig": 1,
     "AllowOverlay": 1,
@@ -204,16 +220,13 @@ new_shortcut = {
     "Devkit": 0,
     "DevkitGameID": "",
     "DevkitOverrideAppID": 0,
-    "LastPlayTime": 1700000000,
+    "LastPlayTime": 0,
     "FlatpakAppID": "",
-    "tags": {"Emulator": 1, "Retro": 1}
+    "tags": {"Favorites": 1}
 }
 
-SteamForgeLib.add_shortcut(steam_id_32, new_shortcut)
-print("New shortcut added successfully.")
-
-# 3. Remove a shortcut by index (automatically re-indexes remaining entries)
-# SteamForgeLib.remove_shortcut(steam_id_32, index=0)
+SteamForgeLib.add_shortcut(steam_id_32, new_shortcut, vdf_path=custom_shortcuts_path)
+print("New shortcut added successfully to custom VDF path.")
 ```
 
 ### 5. UMU / Proton Launcher Integration
@@ -270,7 +283,7 @@ except Exception as e:
 
 | Method | Return Type | Description |
 | --- | --- | --- |
-| `SteamForgeLib.parse_steam_login_users(vdf_path)` | `list` | Parses `loginusers.vdf` and extracts account dicts with ID64/ID32. |
+| `SteamForgeLib.parse_steam_login_users(vdf_path)` | `list` | Parses `loginusers.vdf` (accepts custom `vdf_path`) and extracts account dicts with ID64/ID32. |
 | `SteamForgeLib.create_config(file_path, initial_data, overwrite)` | `str` | Creates a new JSON configuration file and returns its absolute path. |
 | `SteamForgeLib.read_config(file_path)` | `dict` | Reads and parses a JSON configuration file. |
 | `SteamForgeLib.write_config(file_path, data, indent)` | `None` | Dumps dictionary data into a JSON configuration file atomically. |
@@ -278,11 +291,11 @@ except Exception as e:
 | `SteamForgeLib.update_config_values(file_path, updates)` | `None` | Batch updates multiple config keys simultaneously. |
 | `SteamForgeLib.is_steam_running()` | `bool` | Checks active OS processes via `psutil` for Steam instances. |
 | `SteamForgeLib.launch_with_umu(target_exe, ...)` | `subprocess.Popen` | Launches a Windows `.exe` using `umu-run` with custom Proton & WINEPREFIX. |
-| `SteamForgeLib.read_shortcuts(steam_id_32, vdf_path)` | `dict` | Reads binary `shortcuts.vdf` for a given Steam user. |
-| `SteamForgeLib.write_shortcuts(steam_id_32, dict, vdf_path)` | `None` | Dumps shortcut records back to binary VDF format. |
-| `SteamForgeLib.add_shortcut(steam_id_32, shortcut_data, path)` | `None` | Appends a new non-Steam shortcut entry. |
-| `SteamForgeLib.edit_shortcut(steam_id_32, index, updates, path)` | `None` | Modifies an existing shortcut by numeric index. |
-| `SteamForgeLib.remove_shortcut(steam_id_32, index, path)` | `None` | Removes a shortcut and auto-re-indexes remaining items. |
+| `SteamForgeLib.read_shortcuts(steam_id_32, vdf_path)` | `dict` | Reads binary `shortcuts.vdf` (accepts custom `vdf_path`) for a given Steam user. |
+| `SteamForgeLib.write_shortcuts(steam_id_32, dict, vdf_path)` | `None` | Dumps shortcut records back to binary VDF format (accepts custom `vdf_path`). |
+| `SteamForgeLib.add_shortcut(steam_id_32, shortcut_data, path)` | `None` | Appends a new non-Steam shortcut entry (accepts custom `path`/`vdf_path`). |
+| `SteamForgeLib.edit_shortcut(steam_id_32, index, updates, path)` | `None` | Modifies an existing shortcut by numeric index (accepts custom `path`/`vdf_path`). |
+| `SteamForgeLib.remove_shortcut(steam_id_32, index, path)` | `None` | Removes a shortcut and auto-re-indexes remaining items (accepts custom `path`/`vdf_path`). |
 | `SteamForgeLib.search_sgdb_game(api_key, game_name)` | `dict` | Autocomplete searches SteamGridDB for game details. |
 | `SteamForgeLib.get_sgdb_images_by_id(api_key, id, type, ...)` | `list` | Fetches game assets by ID with size and filetype filtering. |
 | `SteamForgeLib.get_sgdb_images_by_name(api_key, name, type, ...)` | `list` | Convenience wrapper resolving a game name to fetch filtered assets. |
