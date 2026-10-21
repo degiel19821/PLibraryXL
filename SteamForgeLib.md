@@ -4,92 +4,87 @@
 
 It unifies **Steam `loginusers.vdf` parsing**, **JSON configuration management** (with dot notation support), **binary Steam shortcuts (`shortcuts.vdf`) management**, **system process monitoring via `psutil`**, and **SteamGridDB API integration** into a single cohesive library.
 
-This repository also includes a fully-featured **PySide6 graphical user interface (`plibrary_gui.py`)**, built specifically as a live testing workbench and demonstration suite for every single feature and method in the library. 
+This repository also includes a fully-featured **PySide6 graphical user interface (`SteamForgeLibGUI.py`)**, built specifically as a live testing workbench and demonstration suite for every single feature and method in the library.
 
-> **Important Note on Dependencies:** **Only the testing GUI (`plibrary_gui.py`) requires PySide6.** The core library (`SteamForgeLib.py`) does **not** use PySide6 and depends only on lightweight community standards (`vdf` and `psutil`), making it fully suitable for headless scripts, automation tools, or backend services.
+> **Important Note on Dependencies:** **Only the testing GUI (`SteamForgeLibGUI.py`) requires PySide6.** The core library (`SteamForgeLib.py`) does **not** use PySide6 and depends only on lightweight community standards (`vdf` and `psutil`), making it fully suitable for headless scripts, automation tools, or backend services.
 
 ## Table of Contents
 
 1. [Features Overview](#features-overview)
-
 2. [Prerequisites & Installation](#prerequisites--installation)
-
-3. [The Testing & Demonstration GUI (`plibrary_gui.py`)](#the-testing--demonstration-gui-plibrary_gui_py)
-
+3. [The Testing & Demonstration GUI (`SteamForgeLibGUI.py`)](#the-testing--demonstration-gui-steamforgelibguippy)
 4. [Core API Usage & Code Examples](#core-api-usage--code-examples)
-
    * [1. Parsing Steam Login Users](#1-parsing-steam-login-users)
-
    * [2. JSON Configuration Management & Dot-Notation Updates](#2-json-configuration-management--dot-notation-updates)
-
    * [3. System Process Monitoring](#3-system-process-monitoring)
-
    * [4. Managing Binary Steam Shortcuts (`shortcuts.vdf`)](#4-managing-binary-steam-shortcuts-shortcutsvdf)
-
    * [5. SteamGridDB Integration with Advanced Filters](#5-steamgriddb-integration-with-advanced-filters)
-
 5. [API Reference Summary](#api-reference-summary)
 
 ## Features Overview
 
 * **Steam VDF Parsing:** Safely reads and parses Steam's `loginusers.vdf` configuration file, automatically computing both `SteamID64` and `SteamID32`.
-
 * **JSON Configuration Engine:** Create, read, write, and manipulate JSON config files with advanced dot-notation key paths (e.g., `settings.graphics.resolution`).
-
 * **Batch Configuration Updates:** Update multiple configuration values simultaneously in a single transaction.
-
 * **Binary Steam Shortcuts (`shortcuts.vdf`):** Full CRUD support for non-Steam game shortcuts, complete with automatic sequential re-indexing and multi-field management (launch options, flags, VR, tags).
-
 * **System Process Monitoring:** Quickly verify whether the official Steam client is active on the host OS.
-
 * **SteamGridDB Integration:** Query games via autocomplete search or direct ID lookup, fetch assets (`grids`, `heroes`, `logos`, `icons`), and apply filters for image dimensions and file types (`png`, `ico`, `jpg`).
-
-* **Interactive Test GUI (`plibrary_gui.py`):** A multi-tab desktop app allowing live inspection, manipulation, and visual preview of all library operations.
+* **Interactive Test GUI (`SteamForgeLibGUI.py`):** A multi-tab desktop app allowing live inspection, manipulation, and visual preview of all library operations.
 
 ## Prerequisites & Installation
 
 Depending on how you plan to use `SteamForgeLib`, you can install either just the lightweight core dependencies or the full GUI stack:
 
 ### 1. Core Library Only (Headless / Backend / Scripts)
+
 If you are only importing `SteamForgeLib` into your own scripts or backend tools, you only need `vdf` and `psutil`:
+
 ```bash
 pip install vdf psutil
 ```
 
 ### 2. Full Stack with Testing GUI
-If you want to run the interactive PySide6 graphical testing workbench (`plibrary_gui.py`), install PySide6 alongside the core packages:
+
+If you want to run the interactive PySide6 graphical testing workbench (`SteamForgeLibGUI.py`), install PySide6 alongside the core packages:
+
 ```bash
 pip install PySide6 vdf psutil
 ```
 
-Ensure `SteamForgeLib.py` and `plibrary_gui.py` are located in the same working directory. Launch the GUI tester with:
+Ensure `SteamForgeLib.py` and `SteamForgeLibGUI.py` are located in the same working directory. Launch the GUI tester with:
+
 ```bash
-python3 plibrary_gui.py
+python3 SteamForgeLibGUI.py
 ```
 
-## The Testing & Demonstration GUI (`plibrary_gui.py`)
+## The Testing & Demonstration GUI (`SteamForgeLibGUI.py`)
 
-The companion GUI application (`plibrary_gui.py`) serves as an interactive testing sandbox and demonstration suite for `SteamForgeLib`. Designed strictly for testing and demonstrating the library's capabilities visually, it features a tabbed layout and a real-time execution log window at the bottom.
+The companion GUI application (`SteamForgeLibGUI.py`) serves as an interactive testing sandbox and demonstration suite for `SteamForgeLib`. Designed strictly for testing and demonstrating the library's capabilities visually, it features a tabbed layout and a real-time execution log window at the bottom.
 
 ### Tab 1: Steam Process & Users
+
 * **Process Monitoring:** Click **"Check if Steam is Running"** to execute `SteamForgeLib.is_steam_running()` and instantly check process states via `psutil`.
 * **Login Users:** Specify or browse to your `loginusers.vdf` file. Clicking **"Parse Login Users"** invokes `SteamForgeLib.parse_steam_login_users()`, populating a detailed table with account identifiers, persona names, and login preferences.
 
 ### Tab 2: JSON Config Management
+
 * **File Operations:** Create pre-populated test configurations, load existing files, or edit JSON content directly in the embedded text editor.
 * **Single & Batch Updates:** Test dot-notation updates (`settings.graphics.fullscreen`) or provide a JSON dictionary of multiple updates to test batch transactions.
 
 ### Tab 3: Steam Shortcuts Management
+
 * **Target Selection:** Configure the target `SteamID32` and base Steam path to locate user-specific `shortcuts.vdf` files.
 * **Interactive Dialogs:** Load, view, add, or edit non-Steam shortcuts across all 13 binary fields (executable paths, tags, start directories, hidden/overlay flags). Deleting entries automatically re-indexes remaining shortcuts.
 
 ### Tab 4: SteamGridDB Integration & Preview
+
 * **API Testing:** Enter your SteamGridDB API key securely, choose between name-based search or direct ID lookup, and apply filters for asset dimensions (`600x900`) and file types (`png`).
 * **Live Image Preview:** Selecting any row in the search results table automatically downloads and renders a high-quality preview of the artwork in the integrated viewer panel.
 
 ## Core API Usage & Code Examples
 
 ### 1. Parsing Steam Login Users
+
 Read local Steam account configurations to extract user IDs and profile info.
 
 ```python
@@ -107,6 +102,7 @@ else:
 ```
 
 ### 2. JSON Configuration Management & Dot-Notation Updates
+
 Create configuration files and update nested parameters cleanly using dot notation.
 
 ```python
@@ -144,6 +140,7 @@ print("Updated Config:", config_data)
 ```
 
 ### 3. System Process Monitoring
+
 Check if the official Steam client is currently active on the host machine.
 
 ```python
@@ -156,6 +153,7 @@ else:
 ```
 
 ### 4. Managing Binary Steam Shortcuts (`shortcuts.vdf`)
+
 Read, add, edit, and remove non-Steam game shortcuts for a specific Steam user account.
 
 ```python
@@ -197,6 +195,7 @@ if success:
 ```
 
 ### 5. SteamGridDB Integration with Advanced Filters
+
 Search for games on SteamGridDB and retrieve customized artwork assets filtered by dimensions and file types.
 
 ```python
