@@ -316,9 +316,12 @@ class PLibraryXL:
             return False, None, f"SteamGridDB search error: {str(e)}"
 
     @classmethod
-    def get_sgdb_images_by_id(cls, api_key: str, game_id: int, image_type: str = "grids"):
+    def get_sgdb_images_by_id(cls, api_key: str, game_id: int, image_type: str = "grids", 
+                              sizes: list = None, filetypes: list = None):
         """
-        Retrieves images for a specific SteamGridDB game ID.
+        Retrieves images for a specific SteamGridDB game ID with optional filtering 
+        by dimensions/sizes (e.g., ["600x900", "342x482"]) and filetypes (e.g., ["png", "jpg", "ico"]).
+        
         image_type can be: 'grids', 'heroes', 'logos', or 'icons'.
         Returns a tuple: (success: bool, images: list, error_message: str | None)
         """
@@ -328,16 +331,45 @@ class PLibraryXL:
         try:
             with urllib.request.urlopen(req) as response:
                 data = json.loads(response.read().decode("utf-8"))
-                if data.get("success"):
-                    return True, data.get("data", []), None
-                return False, [], f"Failed to retrieve {image_type}."
+                if not data.get("success"):
+                    return False, [], f"Failed to retrieve {image_type}."
+                
+                images = data.get("data", [])
+                
+                # Normalize filter parameters if provided
+                norm_sizes = {str(s).strip().lower() for s in sizes} if sizes else None
+                norm_filetypes = {str(f).strip().lower().lstrip('.') for f in filetypes} if filetypes else None
+                
+                filtered_images = []
+                for img in images:
+                    # Filter by size if specified
+                    if norm_sizes:
+                        img_width = str(img.get("width", ""))
+                        img_height = str(img.get("height", ""))
+                        dim_str = f"{img_width}x{img_height}"
+                        # Also check alternative formats or direct width/height matching
+                        if dim_str not in norm_sizes and img_width not in norm_sizes and img_height not in norm_sizes:
+                            continue
+                            
+                    # Filter by filetype if specified
+                    if norm_filetypes:
+                        img_url = img.get("url", "").lower()
+                        ext = img_url.split("?")[0].split(".")[-1]
+                        if ext not in norm_filetypes:
+                            continue
+                            
+                    filtered_images.append(img)
+                    
+                return True, filtered_images, None
         except Exception as e:
             return False, [], f"SteamGridDB image retrieval error: {str(e)}"
 
     @classmethod
-    def get_sgdb_images_by_name(cls, api_key: str, game_name: str, image_type: str = "grids"):
+    def get_sgdb_images_by_name(cls, api_key: str, game_name: str, image_type: str = "grids",
+                                sizes: list = None, filetypes: list = None):
         """
-        Convenience method that resolves a game name to an ID and fetches its images.
+        Convenience method that resolves a game name to an ID and fetches its images 
+        with optional filtering by sizes and filetypes.
         Returns a tuple: (success: bool, images: list, error_message: str | None)
         """
         success, game_data, error = cls.search_sgdb_game(api_key, game_name)
@@ -348,4 +380,4 @@ class PLibraryXL:
         if not game_id:
             return False, [], "Invalid game data returned from search."
 
-        return cls.get_sgdb_images_by_id(api_key, game_id, image_type)
+        return cls.get_sgdb_images_by_id(api_key, game_id, image_type, sizes=sizes, filetypes=filetypes)

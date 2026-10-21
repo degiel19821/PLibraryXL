@@ -11,7 +11,7 @@
 - **Batch Config Updates:** Update multiple top-level or nested configuration values simultaneously in a single read-and-write pass.
 - **Binary Steam Shortcuts Management:** Read, write, add, edit, and remove non-Steam game shortcuts (`shortcuts.vdf`) with automatic sequential re-indexing.
 - **Process Monitoring:** Reliably verify whether the main Steam client is currently active on the system using `psutil`.
-- **SteamGridDB API Integration:** Search games and fetch custom assets (`grids`, `heroes`, `logos`, `icons`) directly from SteamGridDB using an API key.
+- **SteamGridDB API Integration:** Search games and fetch custom assets (`grids`, `heroes`, `logos`, `icons`) directly from SteamGridDB using an API key, with built-in filtering by dimensions/sizes and filetypes (`png`, `jpg`, `ico`, etc.).
 - **Pure Library Design:** Completely independent of command-line arguments or `argparse`, making it purely modular for programmatic integration.
 
 ---
@@ -226,32 +226,47 @@ else:
     print(f"Search failed: {error}")
 ```
 
-#### Retrieving Images by Game ID
+#### Retrieving Images by Game ID (with Size & Filetype Filtering)
 ```python
 from plibrary_xl import PLibraryXL
 
 api_key = "YOUR_STEAMGRIDDB_API_KEY"
 game_id = 123455  # Example SteamGridDB game ID
-# image_type can be: 'grids', 'heroes', 'logos', or 'icons'
-success, images, error = PLibraryXL.get_sgdb_images_by_id(api_key, game_id, image_type="grids")
+
+# Fetch grid images, filtering for specific dimensions and file formats
+success, images, error = PLibraryXL.get_sgdb_images_by_id(
+    api_key, 
+    game_id, 
+    image_type="grids",
+    sizes=["600x900", "512x512"],
+    filetypes=["png", "jpg"]
+)
 
 if success:
-    print(f"Retrieved {len(images)} grid image(s).")
+    print(f"Retrieved {len(images)} matching image(s).")
     for img in images[:3]:
-        print(f"Image URL: {img.get('url')}")
+        print(f"URL: {img.get('url')} | Dimensions: {img.get('width')}x{img.get('height')}")
 else:
-    print(f"Image retrieval failed: {error}")
+    print(f"Retrieval failed: {error}")
 ```
 
-#### Retrieving Images by Game Name (Convenience Method)
+#### Retrieving Images by Game Name (Convenience Method with Filters)
 ```python
 from plibrary_xl import PLibraryXL
 
 api_key = "YOUR_STEAMGRIDDB_API_KEY"
-success, images, error = PLibraryXL.get_sgdb_images_by_name(api_key, "Hades", image_type="logos")
+
+# Resolve game name and filter icons by ico/png and size
+success, images, error = PLibraryXL.get_sgdb_images_by_name(
+    api_key, 
+    "Hades", 
+    image_type="icons",
+    sizes=["512x512"],
+    filetypes=["ico", "png"]
+)
 
 if success:
-    print(f"Retrieved {len(images)} logo image(s) for Hades.")
+    print(f"Retrieved {len(images)} matching icon(s) for Hades.")
 else:
     print(f"Failed: {error}")
 ```
