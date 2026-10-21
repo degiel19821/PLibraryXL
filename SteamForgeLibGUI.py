@@ -150,6 +150,7 @@ class SteamForgeLibTestGUI(QMainWindow):
         self.init_process_login_tab()
         self.init_config_tab()
         self.init_shortcuts_tab()
+        self.init_umu_tab()
         self.init_sgdb_tab()
 
         log_group = QGroupBox("Execution Logs & Output")
@@ -160,7 +161,7 @@ class SteamForgeLibTestGUI(QMainWindow):
         log_layout.addWidget(self.log_text)
         main_layout.addWidget(log_group)
 
-        self.log("SteamForgeLib GUI initialized successfully with SteamGridDB filtering support.")
+        self.log("SteamForgeLib GUI initialized successfully with UMU Launcher and SteamGridDB support.")
 
     def log(self, message: str):
         self.log_text.append(message)
@@ -581,7 +582,86 @@ class SteamForgeLibTestGUI(QMainWindow):
         self.load_shortcuts()
 
     # ==========================================
-    # TAB 4: SteamGridDB Integration & Preview
+    # TAB 4: UMU / Proton Launcher Integration
+    # ==========================================
+    def init_umu_tab(self):
+        tab = QWidget()
+        layout = QVBoxLayout(tab)
+
+        umu_group = QGroupBox("UMU / Proton Launcher Test Bench")
+        umu_form = QFormLayout(umu_group)
+
+        self.txt_umu_exe = QLineEdit()
+        self.txt_umu_exe.setPlaceholderText("/path/to/game.exe")
+        btn_browse_exe = QPushButton("Browse...")
+        btn_browse_exe.clicked.connect(self.browse_target_exe)
+        exe_layout = QHBoxLayout()
+        exe_layout.addWidget(self.txt_umu_exe)
+        exe_layout.addWidget(btn_browse_exe)
+
+        self.txt_umu_path = QLineEdit("umu-run")
+        self.txt_proton_path = QLineEdit()
+        self.txt_proton_path.setPlaceholderText("/path/to/proton/directory (optional)")
+        self.txt_game_id = QLineEdit("0")
+        self.txt_prefix_path = QLineEdit()
+        self.txt_prefix_path.setPlaceholderText("/path/to/wineprefix (optional)")
+        self.txt_launch_args = QLineEdit()
+        self.txt_launch_args.setPlaceholderText("-dx11 -windowed (space-separated)")
+
+        btn_launch_umu = QPushButton("Launch with UMU")
+        btn_launch_umu.clicked.connect(self.launch_umu_action)
+
+        umu_form.addRow("Target Executable:", exe_layout)
+        umu_form.addRow("umu-run Path:", self.txt_umu_path)
+        umu_form.addRow("Proton Path / Version:", self.txt_proton_path)
+        umu_form.addRow("Game ID (AppID):", self.txt_game_id)
+        umu_form.addRow("WINEPREFIX Path:", self.txt_prefix_path)
+        umu_form.addRow("Launch Arguments:", self.txt_launch_args)
+        umu_form.addRow(btn_launch_umu)
+
+        layout.addWidget(umu_group)
+        self.tabs.addTab(tab, "UMU / Proton Launcher")
+
+    def browse_target_exe(self):
+        path, _ = QFileDialog.getOpenFileName(self, "Select Windows Executable", "", "Executables (*.exe);;All Files (*)")
+        if path:
+            self.txt_umu_exe.setText(path)
+
+    def launch_umu_action(self):
+        exe_path = self.txt_umu_exe.text().strip()
+        umu_run = self.txt_umu_path.text().strip() or "umu-run"
+        proton = self.txt_proton_path.text().strip()
+        game_id = self.txt_game_id.text().strip()
+        prefix = self.txt_prefix_path.text().strip()
+        args_raw = self.txt_launch_args.text().strip()
+        args_list = args_raw.split() if args_raw else []
+
+        if not exe_path:
+            QMessageBox.warning(self, "Executable Required", "Please specify a target .exe file.")
+            return
+
+        self.log(f"Attempting to launch {exe_path} via UMU ({umu_run})...")
+        success, process, error = SteamForgeLib.launch_with_umu(
+            target_exe=exe_path,
+            umu_run_path=umu_run,
+            proton_version=proton,
+            game_id=game_id,
+            prefix_path=prefix,
+            launch_options=args_list,
+            log_output=True
+        )
+
+        if not success:
+            QMessageBox.critical(self, "UMU Launch Error", error)
+            self.log(f"UMU launch failed: {error}")
+            return
+
+        pid_str = str(process.pid) if process else "N/A"
+        self.log("Successfully launched process via UMU (PID: " + pid_str + ")")
+        QMessageBox.information(self, "Success", "Successfully launched process via UMU!\nPID: " + pid_str)
+
+    # ==========================================
+    # TAB 5: SteamGridDB Integration & Preview
     # ==========================================
     def init_sgdb_tab(self):
         tab = QWidget()

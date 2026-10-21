@@ -1,8 +1,8 @@
 # SteamForgeLib (`SteamForgeLib`)
 
-`SteamForgeLib` is a robust, lightweight, and object-oriented Python library designed to simplify interaction with the Steam client ecosystem, configuration files, binary shortcuts, and external metadata APIs.
+`SteamForgeLib` is a robust, lightweight, and object-oriented Python library designed to simplify interaction with the Steam client ecosystem, configuration files, binary shortcuts, external metadata APIs, and Proton/UMU compatibility layers.
 
-It unifies **Steam `loginusers.vdf` parsing**, **JSON configuration management** (with dot notation support), **binary Steam shortcuts (`shortcuts.vdf`) management**, **system process monitoring via `psutil`**, and **SteamGridDB API integration** into a single cohesive library.
+It unifies **Steam `loginusers.vdf` parsing**, **JSON configuration management** (with dot notation support), **binary Steam shortcuts (`shortcuts.vdf`) management**, **system process monitoring via `psutil`**, **UMU / Proton launcher integration (`launch_with_umu`)**, and **SteamGridDB API integration** into a single cohesive library.
 
 This repository also includes a fully-featured **PySide6 graphical user interface (`SteamForgeLibGUI.py`)**, built specifically as a live testing workbench and demonstration suite for every single feature and method in the library.
 
@@ -18,8 +18,11 @@ This repository also includes a fully-featured **PySide6 graphical user interfac
    * [2. JSON Configuration Management & Dot-Notation Updates](#2-json-configuration-management--dot-notation-updates)
    * [3. System Process Monitoring](#3-system-process-monitoring)
    * [4. Managing Binary Steam Shortcuts (`shortcuts.vdf`)](#4-managing-binary-steam-shortcuts-shortcutsvdf)
-   * [5. SteamGridDB Integration with Advanced Filters](#5-steamgriddb-integration-with-advanced-filters)
+   * [5. UMU / Proton Launcher Integration](#5-umu--proton-launcher-integration)
+   * [6. SteamGridDB Integration with Advanced Filters](#6-steamgriddb-integration-with-advanced-filters)
 5. [API Reference Summary](#api-reference-summary)
+
+---
 
 ## Features Overview
 
@@ -27,9 +30,12 @@ This repository also includes a fully-featured **PySide6 graphical user interfac
 * **JSON Configuration Engine:** Create, read, write, and manipulate JSON config files with advanced dot-notation key paths (e.g., `settings.graphics.resolution`).
 * **Batch Configuration Updates:** Update multiple configuration values simultaneously in a single transaction.
 * **Binary Steam Shortcuts (`shortcuts.vdf`):** Full CRUD support for non-Steam game shortcuts, complete with automatic sequential re-indexing and multi-field management (launch options, flags, VR, tags).
-* **System Process Monitoring:** Quickly verify whether the official Steam client is active on the host OS.
+* **System Process Monitoring:** Quickly verify whether the official Steam client is active on the host OS via `psutil`.
+* **UMU / Proton Integration:** Directly launch Windows executables using `umu-launcher` (`umu-run`) with custom Proton versions, WINEPREFIX paths, and game identifiers.
 * **SteamGridDB Integration:** Query games via autocomplete search or direct ID lookup, fetch assets (`grids`, `heroes`, `logos`, `icons`), and apply filters for image dimensions and file types (`png`, `ico`, `jpg`).
 * **Interactive Test GUI (`SteamForgeLibGUI.py`):** A multi-tab desktop app allowing live inspection, manipulation, and visual preview of all library operations.
+
+---
 
 ## Prerequisites & Installation
 
@@ -57,29 +63,29 @@ Ensure `SteamForgeLib.py` and `SteamForgeLibGUI.py` are located in the same work
 python3 SteamForgeLibGUI.py
 ```
 
+---
+
 ## The Testing & Demonstration GUI (`SteamForgeLibGUI.py`)
 
 The companion GUI application (`SteamForgeLibGUI.py`) serves as an interactive testing sandbox and demonstration suite for `SteamForgeLib`. Designed strictly for testing and demonstrating the library's capabilities visually, it features a tabbed layout and a real-time execution log window at the bottom.
 
 ### Tab 1: Steam Process & Users
-
 * **Process Monitoring:** Click **"Check if Steam is Running"** to execute `SteamForgeLib.is_steam_running()` and instantly check process states via `psutil`.
 * **Login Users:** Specify or browse to your `loginusers.vdf` file. Clicking **"Parse Login Users"** invokes `SteamForgeLib.parse_steam_login_users()`, populating a detailed table with account identifiers, persona names, and login preferences.
 
 ### Tab 2: JSON Config Management
-
 * **File Operations:** Create pre-populated test configurations, load existing files, or edit JSON content directly in the embedded text editor.
 * **Single & Batch Updates:** Test dot-notation updates (`settings.graphics.fullscreen`) or provide a JSON dictionary of multiple updates to test batch transactions.
 
 ### Tab 3: Steam Shortcuts Management
-
 * **Target Selection:** Configure the target `SteamID32` and base Steam path to locate user-specific `shortcuts.vdf` files.
 * **Interactive Dialogs:** Load, view, add, or edit non-Steam shortcuts across all 13 binary fields (executable paths, tags, start directories, hidden/overlay flags). Deleting entries automatically re-indexes remaining shortcuts.
 
 ### Tab 4: SteamGridDB Integration & Preview
-
 * **API Testing:** Enter your SteamGridDB API key securely, choose between name-based search or direct ID lookup, and apply filters for asset dimensions (`600x900`) and file types (`png`).
 * **Live Image Preview:** Selecting any row in the search results table automatically downloads and renders a high-quality preview of the artwork in the integrated viewer panel.
+
+---
 
 ## Core API Usage & Code Examples
 
@@ -194,7 +200,30 @@ if success:
 # SteamForgeLib.remove_shortcut(steam_id_32, index=0)
 ```
 
-### 5. SteamGridDB Integration with Advanced Filters
+### 5. UMU / Proton Launcher Integration
+
+Launch Windows executables via `umu-run` with isolated prefixes and custom Proton versions.
+
+```python
+from SteamForgeLib import SteamForgeLib
+
+success, process, error = SteamForgeLib.launch_with_umu(
+    target_exe="/path/to/game/game.exe",
+    umu_run_path="umu-run",
+    proton_version="/path/to/proton/Experimental",
+    game_id="123456",
+    prefix_path="/path/to/wineprefix",
+    launch_options=["-dx11", "-windowed"],
+    log_output=True
+)
+
+if success:
+    print(f"Successfully launched game with UMU (PID: {process.pid})")
+else:
+    print(f"Launch failed: {error}")
+```
+
+### 6. SteamGridDB Integration with Advanced Filters
 
 Search for games on SteamGridDB and retrieve customized artwork assets filtered by dimensions and file types.
 
@@ -220,6 +249,8 @@ else:
     print(f"SteamGridDB query failed: {error}")
 ```
 
+---
+
 ## API Reference Summary
 
 | Method | Return Type | Description |
@@ -231,6 +262,7 @@ else:
 | `SteamForgeLib.update_config_value(file_path, key_path, value)` | `tuple[bool, str]` | Updates a single config value using dot notation. |
 | `SteamForgeLib.update_config_values(file_path, updates)` | `tuple[bool, str]` | Batch updates multiple config keys simultaneously. |
 | `SteamForgeLib.is_steam_running()` | `bool` | Checks active OS processes via `psutil` for Steam instances. |
+| `SteamForgeLib.launch_with_umu(target_exe, ...)` | `tuple[bool, subprocess.Popen, str]` | Launches a Windows `.exe` using `umu-run` with custom Proton & WINEPREFIX. |
 | `SteamForgeLib.read_shortcuts(steam_id_32, vdf_path)` | `tuple[bool, dict, int, str]` | Reads binary `shortcuts.vdf` for a given Steam user. |
 | `SteamForgeLib.write_shortcuts(steam_id_32, dict, vdf_path)` | `tuple[bool, str]` | Dumps shortcut records back to binary VDF format. |
 | `SteamForgeLib.add_shortcut(steam_id_32, shortcut_data, path)` | `tuple[bool, str]` | Appends a new non-Steam shortcut entry. |
