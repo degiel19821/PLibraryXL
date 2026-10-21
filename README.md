@@ -39,9 +39,26 @@ This repository also includes a fully-featured **PySide6 graphical user interfac
 
 ## Prerequisites & Installation
 
-Depending on how you plan to use `SteamForgeLib`, you can install either just the lightweight core dependencies or the full GUI stack:
+Depending on how you plan to use `SteamForgeLib`, you can install either just the lightweight core dependencies or the full GUI stack. 
 
-### 1. Core Library Only (Headless / Backend / Scripts)
+### Automated Setup (Recommended for GUI Testing)
+
+For the easiest way to test the full stack, use the provided helper scripts. They will automatically create an isolated Python virtual environment (`.venv`), install all required dependencies (including PySide6), and launch the interface:
+
+```bash
+# Make the scripts executable
+chmod +x run_gui.sh uninstall.sh
+
+# Setup the environment and launch the GUI
+./run_gui.sh
+
+# When you're done, you can cleanly remove the environment and cache files
+./uninstall.sh
+```
+
+### Manual Installation
+
+#### 1. Core Library Only (Headless / Backend / Scripts)
 
 If you are only importing `SteamForgeLib` into your own scripts or backend tools, you only need `vdf` and `psutil`:
 
@@ -49,19 +66,16 @@ If you are only importing `SteamForgeLib` into your own scripts or backend tools
 pip install vdf psutil
 ```
 
-### 2. Full Stack with Testing GUI
+#### 2. Full Stack with Testing GUI
 
-If you want to run the interactive PySide6 graphical testing workbench (`SteamForgeLibGUI.py`), install PySide6 alongside the core packages:
+If you want to manually run the interactive PySide6 graphical testing workbench (`SteamForgeLibGUI.py`), install PySide6 alongside the core packages:
 
 ```bash
 pip install PySide6 vdf psutil
-```
-
-Ensure `SteamForgeLib.py` and `SteamForgeLibGUI.py` are located in the same working directory. Launch the GUI tester with:
-
-```bash
 python3 SteamForgeLibGUI.py
 ```
+
+Ensure `SteamForgeLib.py` and `SteamForgeLibGUI.py` are located in the same working directory.
 
 ---
 
@@ -81,7 +95,10 @@ The companion GUI application (`SteamForgeLibGUI.py`) serves as an interactive t
 * **Target Selection:** Configure the target `SteamID32` and base Steam path to locate user-specific `shortcuts.vdf` files.
 * **Interactive Dialogs:** Load, view, add, or edit non-Steam shortcuts across all 13 binary fields (executable paths, tags, start directories, hidden/overlay flags). Deleting entries automatically re-indexes remaining shortcuts.
 
-### Tab 4: SteamGridDB Integration & Preview
+### Tab 4: UMU / Proton Launcher Integration
+* **Launcher Testing:** Configure a target executable, `umu-run` path, Proton version, game ID, WINEPREFIX, and launch arguments to visually test running isolated Windows programs on Linux via the library wrapper.
+
+### Tab 5: SteamGridDB Integration & Preview
 * **API Testing:** Enter your SteamGridDB API key securely, choose between name-based search or direct ID lookup, and apply filters for asset dimensions (`600x900`) and file types (`png`).
 * **Live Image Preview:** Selecting any row in the search results table automatically downloads and renders a high-quality preview of the artwork in the integrated viewer panel.
 
