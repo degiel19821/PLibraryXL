@@ -98,14 +98,19 @@ class SteamForgeLib:
 
         accounts = []
         users_dict = data.get("users", {})
+        if not isinstance(users_dict, dict):
+            return accounts
         
         for steam_id_str, details in users_dict.items():
             try:
                 steam_id_64 = int(steam_id_str)
-            except ValueError:
+            except (ValueError, TypeError):
                 continue
 
             steam_id_32 = steam_id_64 & 0xFFFFFFFF
+
+            if not isinstance(details, dict):
+                details = {}
 
             account_info = {
                 "SteamID64": steam_id_64,
@@ -134,6 +139,7 @@ class SteamForgeLib:
         if initial_data is None:
             initial_data = {}
 
+        temp_path = None
         try:
             dir_name = os.path.dirname(abs_path)
             if dir_name and not os.path.exists(dir_name):
@@ -145,10 +151,10 @@ class SteamForgeLib:
                 
             os.replace(temp_path, abs_path)
             return abs_path
-        except (PermissionError, OSError) as e:
-            if "temp_path" in locals() and os.path.exists(temp_path):
+        except (PermissionError, OSError, TypeError) as e:
+            if temp_path and os.path.exists(temp_path):
                 try: os.remove(temp_path)
-                except: pass
+                except Exception: pass
             raise ConfigError(f"Error creating config file: {str(e)}")
 
     @classmethod
@@ -169,6 +175,7 @@ class SteamForgeLib:
     @classmethod
     def write_config(cls, file_path: str, data: dict, indent: int = 4) -> None:
         """Writes configuration data back to the JSON file atomically."""
+        temp_path = None
         try:
             abs_path = os.path.abspath(file_path)
             dir_name = os.path.dirname(abs_path)
@@ -181,9 +188,9 @@ class SteamForgeLib:
 
             os.replace(temp_path, abs_path)
         except (PermissionError, OSError, TypeError) as e:
-            if "temp_path" in locals() and os.path.exists(temp_path):
+            if temp_path and os.path.exists(temp_path):
                 try: os.remove(temp_path)
-                except: pass
+                except Exception: pass
             raise ConfigError(f"Error writing config: {str(e)}")
 
     @classmethod
@@ -337,6 +344,7 @@ class SteamForgeLib:
     def write_shortcuts(cls, steam_id_32: int, shortcuts_dict: dict, vdf_path: str = None) -> None:
         """Writes configuration data back to the binary shortcuts.vdf file atomically."""
         path = vdf_path or cls.get_shortcuts_path(steam_id_32)
+        temp_path = None
         try:
             dir_name = os.path.dirname(path)
             if dir_name and not os.path.exists(dir_name):
@@ -350,9 +358,9 @@ class SteamForgeLib:
 
             os.replace(temp_path, path)
         except (PermissionError, OSError, ValueError) as e:
-            if "temp_path" in locals() and os.path.exists(temp_path):
+            if temp_path and os.path.exists(temp_path):
                 try: os.remove(temp_path)
-                except: pass
+                except Exception: pass
             raise ShortcutError(f"Error writing shortcuts file: {str(e)}")
 
     @classmethod
@@ -451,7 +459,6 @@ class SteamForgeLib:
         """
         url = f"https://www.steamgriddb.com/api/v2/{image_type}/game/{game_id}"
         
-        # Standardized User-Agent header fix applied (SteamForgeLib.1.0 -> SteamForgeLib/1.0)
         req = urllib.request.Request(url, headers={"Authorization": f"Bearer {api_key}", "User-Agent": "SteamForgeLib/1.0"})
         try:
             with urllib.request.urlopen(req, timeout=10) as response:
@@ -460,12 +467,16 @@ class SteamForgeLib:
                     raise SteamGridDBError(f"Failed to retrieve {image_type}.")
                 
                 images = data.get("data", [])
+                if not isinstance(images, list):
+                    images = []
                 
                 norm_sizes = {str(s).strip().lower() for s in sizes} if sizes else None
                 norm_filetypes = {str(f).strip().lower().lstrip('.') for f in filetypes} if filetypes else None
                 
                 filtered_images = []
                 for img in images:
+                    if not isinstance(img, dict):
+                        continue
                     if norm_sizes:
                         img_width = str(img.get("width", ""))
                         img_height = str(img.get("height", ""))
@@ -474,8 +485,10 @@ class SteamForgeLib:
                             continue
                             
                     if norm_filetypes:
-                        img_url = img.get("url", "").lower()
-                        ext = img_url.split("?")[0].split(".")[-1]
+                        img_url = img.get("url", "")
+                        if not isinstance(img_url, str):
+                            img_url = ""
+                        ext = img_url.split("?")[0].split(".")[-1].lower()
                         if ext not in norm_filetypes:
                             continue
                             
