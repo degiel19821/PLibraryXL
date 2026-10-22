@@ -295,6 +295,28 @@ class SteamForgeLib:
             raise UMUError(f"OS error launching with umu: {str(e)}")
 
     @staticmethod
+    def launch_steam_game(app_id: str | int) -> None:
+        """
+        Launches an official Steam game or custom shortcut using Steam's built-in protocol handler.
+        """
+        import platform
+        app_id_str = str(app_id)
+        url = f"steam://rungameid/{app_id_str}"
+        
+        system = platform.system()
+        try:
+            if system == "Linux":
+                subprocess.Popen(["xdg-open", url])
+            elif system == "Windows":
+                os.startfile(url)
+            elif system == "Darwin":  # macOS
+                subprocess.Popen(["open", url])
+            else:
+                raise SteamForgeError(f"Unsupported operating system for protocol launch: {system}")
+        except Exception as e:
+            raise SteamForgeError(f"Failed to launch Steam game AppID {app_id_str}: {str(e)}")
+
+    @staticmethod
     def is_steam_running() -> bool:
         """
         Reliably checks if the main Steam client is currently running on the system

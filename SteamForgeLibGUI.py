@@ -470,10 +470,14 @@ class SteamForgeLibTestGUI(QMainWindow):
 
         btn_remove_sc = QPushButton("Remove Selected Shortcut")
         btn_remove_sc.clicked.connect(self.remove_shortcut_selected)
+        
+        btn_launch_game = QPushButton("Launch Selected Game")
+        btn_launch_game.clicked.connect(self.launch_selected_steam_game)
 
         act_layout.addWidget(btn_add_sc)
         act_layout.addWidget(btn_edit_sc)
         act_layout.addWidget(btn_remove_sc)
+        act_layout.addWidget(btn_launch_game)
         sc_layout.addLayout(act_layout)
 
         layout.addWidget(sc_group)
@@ -610,6 +614,27 @@ class SteamForgeLibTestGUI(QMainWindow):
             except SteamForgeError as e:
                 QMessageBox.critical(self, "Error", str(e))
                 self.log(f"Failed to edit shortcut: {e}")
+
+    def launch_selected_steam_game(self):
+        selected_rows = self.table_shortcuts.selectionModel().selectedRows()
+        if not selected_rows:
+            QMessageBox.warning(self, "Selection Required", "Please select a game or shortcut row to launch.")
+            return
+
+        row = selected_rows[0].row()
+        item = self.table_shortcuts.item(row, 0)
+        if not item:
+            return
+
+        app_id_or_idx = item.text()
+        
+        try:
+            SteamForgeLib.launch_steam_game(app_id_or_idx)
+            self.log(f"Successfully triggered launch for Steam AppID/Index: {app_id_or_idx}")
+            QMessageBox.information(self, "Success", f"Launch command sent for: {app_id_or_idx}")
+        except SteamForgeError as e:
+            QMessageBox.critical(self, "Launch Error", str(e))
+            self.log(f"Failed to launch game: {e}")
 
     def remove_shortcut_selected(self):
         selected_rows = self.table_shortcuts.selectionModel().selectedRows()
