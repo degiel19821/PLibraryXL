@@ -427,7 +427,8 @@ class SteamForgeLib:
         """
         url = f"https://www.steamgriddb.com/api/v2/{image_type}/game/{game_id}"
         
-        req = urllib.request.Request(url, headers={"Authorization": f"Bearer {api_key}", "User-Agent": "SteamForgeLib.1.0"})
+        # Standardized User-Agent header fix applied (SteamForgeLib.1.0 -> SteamForgeLib/1.0)
+        req = urllib.request.Request(url, headers={"Authorization": f"Bearer {api_key}", "User-Agent": "SteamForgeLib/1.0"})
         try:
             with urllib.request.urlopen(req) as response:
                 data = json.loads(response.read().decode("utf-8"))
