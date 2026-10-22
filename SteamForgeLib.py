@@ -8,6 +8,7 @@ import urllib.error
 import tempfile
 import vdf
 import psutil
+from typing import List, Dict, Optional, Any
 
 class SteamForgeError(Exception):
     """Base exception for SteamForgeLib."""
@@ -46,7 +47,7 @@ class SteamForgeLib:
     """
 
     @staticmethod
-    def _safe_bool(value) -> bool:
+    def _safe_bool(value: Any) -> bool:
         """Safely coerces VDF values (strings, ints, or booleans) into a boolean."""
         if isinstance(value, bool):
             return value
@@ -77,7 +78,7 @@ class SteamForgeLib:
         return os.path.expanduser("~/.local/share/Steam")
 
     @classmethod
-    def parse_steam_login_users(cls, vdf_path: str = None) -> list:
+    def parse_steam_login_users(cls, vdf_path: Optional[str] = None) -> List[Dict[str, Any]]:
         """
         Reads and parses the Steam loginusers.vdf file.
         Returns a list of accounts. Raises VDFParseError on failure.
@@ -126,7 +127,7 @@ class SteamForgeLib:
         return accounts
 
     @classmethod
-    def create_config(cls, file_path: str, initial_data: dict = None, overwrite: bool = False) -> str:
+    def create_config(cls, file_path: str, initial_data: Optional[Dict[str, Any]] = None, overwrite: bool = False) -> str:
         """
         Creates a configuration file using externally provided initial_data.
         Returns the absolute path. Raises ConfigError on failure.
@@ -158,7 +159,7 @@ class SteamForgeLib:
             raise ConfigError(f"Error creating config file: {str(e)}")
 
     @classmethod
-    def read_config(cls, file_path: str) -> dict:
+    def read_config(cls, file_path: str) -> Dict[str, Any]:
         """Reads and parses a JSON config file. Raises ConfigError on failure."""
         if not os.path.exists(file_path):
             raise ConfigError(f"Config file not found: {file_path}")
@@ -173,7 +174,7 @@ class SteamForgeLib:
             raise ConfigError(f"Permission denied: {str(e)}")
 
     @classmethod
-    def write_config(cls, file_path: str, data: dict, indent: int = 4) -> None:
+    def write_config(cls, file_path: str, data: Dict[str, Any], indent: int = 4) -> None:
         """Writes configuration data back to the JSON file atomically."""
         temp_path = None
         try:
@@ -194,7 +195,7 @@ class SteamForgeLib:
             raise ConfigError(f"Error writing config: {str(e)}")
 
     @classmethod
-    def update_config_value(cls, file_path: str, key_path: str, value) -> None:
+    def update_config_value(cls, file_path: str, key_path: str, value: Any) -> None:
         """Updates a single value in an existing config. Supports dot notation for nested keys."""
         config = cls.read_config(file_path)
 
@@ -209,7 +210,7 @@ class SteamForgeLib:
         cls.write_config(file_path, config)
 
     @classmethod
-    def update_config_values(cls, file_path: str, updates: dict) -> None:
+    def update_config_values(cls, file_path: str, updates: Dict[str, Any]) -> None:
         """
         Updates multiple values at once in an existing config file.
         Accepts a dictionary mapping dot-notation key paths to their new values.
@@ -239,15 +240,18 @@ class SteamForgeLib:
         proton_version: str = "",
         game_id: str = "0",
         prefix_path: str = "",
-        launch_options: list = None,
+        launch_options: Optional[List[str]] = None,
         log_output: bool = True
     ) -> subprocess.Popen:
         """
         Directly launches a Windows executable using umu-launcher (umu-run) with custom parameters.
         Raises UMUError on failure.
         """
+        # Sanitization: Ensure launch_options is a valid list of strictly cast strings.
         if launch_options is None:
-            launch_options = []
+            sanitized_options = []
+        else:
+            sanitized_options = [str(opt) for opt in launch_options]
             
         exe_path = os.path.abspath(target_exe)
         if not os.path.exists(exe_path):
@@ -268,7 +272,7 @@ class SteamForgeLib:
         if prefix_path:
             env["WINEPREFIX"] = str(prefix_path)
             
-        cmd = [umu_run_path, exe_path] + launch_options
+        cmd = [umu_run_path, exe_path] + sanitized_options
         
         try:
             stdout_dest = subprocess.PIPE if log_output else None
@@ -314,14 +318,14 @@ class SteamForgeLib:
     # ==========================================
 
     @staticmethod
-    def get_shortcuts_path(steam_id_32: int, base_steam_path: str = None) -> str:
+    def get_shortcuts_path(steam_id_32: int, base_steam_path: Optional[str] = None) -> str:
         """Returns the absolute path to a user's shortcuts.vdf file based on their 32-bit Steam ID."""
         if base_steam_path is None:
             base_steam_path = SteamForgeLib.get_default_steam_path()
         return os.path.join(base_steam_path, "userdata", str(steam_id_32), "config", "shortcuts.vdf")
 
     @classmethod
-    def read_shortcuts(cls, steam_id_32: int, vdf_path: str = None) -> dict:
+    def read_shortcuts(cls, steam_id_32: int, vdf_path: Optional[str] = None) -> Dict[str, Any]:
         """
         Reads and parses the binary shortcuts.vdf file for a specific 32-bit Steam user ID.
         Raises ShortcutError on failure.
@@ -341,7 +345,7 @@ class SteamForgeLib:
             raise ShortcutError(f"Corrupted binary shortcuts.vdf format: {str(e)}")
 
     @classmethod
-    def write_shortcuts(cls, steam_id_32: int, shortcuts_dict: dict, vdf_path: str = None) -> None:
+    def write_shortcuts(cls, steam_id_32: int, shortcuts_dict: Dict[str, Any], vdf_path: Optional[str] = None) -> None:
         """Writes configuration data back to the binary shortcuts.vdf file atomically."""
         path = vdf_path or cls.get_shortcuts_path(steam_id_32)
         temp_path = None
@@ -364,7 +368,7 @@ class SteamForgeLib:
             raise ShortcutError(f"Error writing shortcuts file: {str(e)}")
 
     @classmethod
-    def add_shortcut(cls, steam_id_32: int, shortcut_data: dict, vdf_path: str = None) -> None:
+    def add_shortcut(cls, steam_id_32: int, shortcut_data: Dict[str, Any], vdf_path: Optional[str] = None) -> None:
         """
         Adds a new non-Steam shortcut for the specified 32-bit Steam user.
         """
@@ -383,7 +387,7 @@ class SteamForgeLib:
         cls.write_shortcuts(steam_id_32, shortcuts, vdf_path)
 
     @classmethod
-    def edit_shortcut(cls, steam_id_32: int, index: int, updates: dict, vdf_path: str = None) -> None:
+    def edit_shortcut(cls, steam_id_32: int, index: int, updates: Dict[str, Any], vdf_path: Optional[str] = None) -> None:
         """
         Edits an existing shortcut by its numeric index.
         """
@@ -400,7 +404,7 @@ class SteamForgeLib:
         cls.write_shortcuts(steam_id_32, shortcuts, vdf_path)
 
     @classmethod
-    def remove_shortcut(cls, steam_id_32: int, index: int, vdf_path: str = None) -> None:
+    def remove_shortcut(cls, steam_id_32: int, index: int, vdf_path: Optional[str] = None) -> None:
         """
         Removes a shortcut by its numeric index and automatically re-indexes 
         the remaining entries sequentially as Steam expects.
@@ -431,7 +435,7 @@ class SteamForgeLib:
     # ==========================================
 
     @classmethod
-    def search_sgdb_game(cls, api_key: str, game_name: str) -> dict:
+    def search_sgdb_game(cls, api_key: str, game_name: str) -> Dict[str, Any]:
         """
         Searches SteamGridDB for a game by name.
         Raises SteamGridDBError on failure.
@@ -455,7 +459,7 @@ class SteamForgeLib:
 
     @classmethod
     def get_sgdb_images_by_id(cls, api_key: str, game_id: int, image_type: str = "grids", 
-                              sizes: list = None, filetypes: list = None) -> list:
+                              sizes: Optional[List[str]] = None, filetypes: Optional[List[str]] = None) -> List[Dict[str, Any]]:
         """
         Retrieves images for a specific SteamGridDB game ID with optional filtering 
         by dimensions/sizes (e.g., ["600x900", "342x482"]) and filetypes (e.g., ["png", "jpg", "ico"]).
@@ -510,7 +514,7 @@ class SteamForgeLib:
 
     @classmethod
     def get_sgdb_images_by_name(cls, api_key: str, game_name: str, image_type: str = "grids",
-                                sizes: list = None, filetypes: list = None) -> list:
+                                sizes: Optional[List[str]] = None, filetypes: Optional[List[str]] = None) -> List[Dict[str, Any]]:
         """
         Convenience method that resolves a game name to an ID and fetches its images 
         with optional filtering by sizes and filetypes.
