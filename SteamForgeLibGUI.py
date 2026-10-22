@@ -47,26 +47,39 @@ class ShortcutDialog(QDialog):
         self.txt_tags.setMaximumHeight(70)
         self.txt_tags.setPlaceholderText("JSON dict or comma-separated tags...")
 
+        def get_val(data, *keys, default=""):
+            for k in keys:
+                if k in data:
+                    return data[k]
+            return default
+
+        def get_bool(data, *keys, default=0):
+            val = get_val(data, *keys, default=default)
+            try:
+                return bool(int(val))
+            except (ValueError, TypeError):
+                return bool(val)
+
         if shortcut_data:
-            self.txt_appname.setText(str(shortcut_data.get("appname", "")))
-            self.txt_exe.setText(str(shortcut_data.get("exe", "")))
-            self.txt_startdir.setText(str(shortcut_data.get("StartDir", "")))
-            self.txt_icon.setText(str(shortcut_data.get("icon", "")))
-            self.txt_shortcutpath.setText(str(shortcut_data.get("ShortcutPath", "")))
-            self.txt_launchoptions.setText(str(shortcut_data.get("LaunchOptions", "")))
+            self.txt_appname.setText(str(get_val(shortcut_data, "AppName", "appname")))
+            self.txt_exe.setText(str(get_val(shortcut_data, "Exe", "exe")))
+            self.txt_startdir.setText(str(get_val(shortcut_data, "StartDir", "startdir", "Start Dir")))
+            self.txt_icon.setText(str(get_val(shortcut_data, "Icon", "icon")))
+            self.txt_shortcutpath.setText(str(get_val(shortcut_data, "ShortcutPath", "shortcutpath")))
+            self.txt_launchoptions.setText(str(get_val(shortcut_data, "LaunchOptions", "launchoptions")))
             
-            self.chk_ishidden.setChecked(bool(shortcut_data.get("IsHidden", 0)))
-            self.chk_allowdesktopconfig.setChecked(bool(shortcut_data.get("AllowDesktopConfig", 1)))
-            self.chk_allowoverlay.setChecked(bool(shortcut_data.get("AllowOverlay", 1)))
-            self.chk_openvr.setChecked(bool(shortcut_data.get("OpenVR", 0)))
-            self.chk_devkit.setChecked(bool(shortcut_data.get("Devkit", 0)))
+            self.chk_ishidden.setChecked(get_bool(shortcut_data, "IsHidden", "ishidden", default=0))
+            self.chk_allowdesktopconfig.setChecked(get_bool(shortcut_data, "AllowDesktopConfig", "allowdesktopconfig", default=1))
+            self.chk_allowoverlay.setChecked(get_bool(shortcut_data, "AllowOverlay", "allowoverlay", default=1))
+            self.chk_openvr.setChecked(get_bool(shortcut_data, "OpenVR", "openvr", default=0))
+            self.chk_devkit.setChecked(get_bool(shortcut_data, "Devkit", "devkit", default=0))
             
-            self.txt_devkitgameid.setText(str(shortcut_data.get("DevkitGameID", "")))
-            self.spin_devkitoverrideappid.setValue(int(shortcut_data.get("DevkitOverrideAppID", 0)))
-            self.spin_lastplaytime.setValue(int(shortcut_data.get("LastPlayTime", 0)))
-            self.txt_flatpakappid.setText(str(shortcut_data.get("FlatpakAppID", "")))
+            self.txt_devkitgameid.setText(str(get_val(shortcut_data, "DevkitGameID", "devkitgameid", "")))
+            self.spin_devkitoverrideappid.setValue(int(get_val(shortcut_data, "DevkitOverrideAppID", "devkitoverrideappid", default=0)))
+            self.spin_lastplaytime.setValue(int(get_val(shortcut_data, "LastPlayTime", "lastplaytime", default=0)))
+            self.txt_flatpakappid.setText(str(get_val(shortcut_data, "FlatpakAppID", "flatpakappid", "")))
             
-            tags_val = shortcut_data.get("tags", {})
+            tags_val = get_val(shortcut_data, "tags", "Tags", default={})
             if isinstance(tags_val, dict):
                 self.txt_tags.setPlainText(json.dumps(tags_val, indent=2))
             else:
@@ -202,10 +215,10 @@ class SteamForgeLibTestGUI(QMainWindow):
         vdf_layout.addWidget(btn_parse_vdf)
 
         self.table_accounts = QTableWidget()
-        self.table_accounts.setColumnCount(7)
+        self.table_accounts.setColumnCount(8)
         self.table_accounts.setHorizontalHeaderLabels([
             "SteamID64", "SteamID32", "Account Name", "Persona Name", 
-            "Remember Password", "Auto Login", "Timestamp"
+            "Avatar Hash", "Remember Password", "Auto Login", "Timestamp"
         ])
         self.table_accounts.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         vdf_layout.addWidget(self.table_accounts)
@@ -242,9 +255,10 @@ class SteamForgeLibTestGUI(QMainWindow):
                 self.table_accounts.setItem(row, 1, QTableWidgetItem(str(acc.get("SteamID32"))))
                 self.table_accounts.setItem(row, 2, QTableWidgetItem(str(acc.get("AccountName"))))
                 self.table_accounts.setItem(row, 3, QTableWidgetItem(str(acc.get("PersonaName"))))
-                self.table_accounts.setItem(row, 4, QTableWidgetItem(str(acc.get("RememberPassword"))))
-                self.table_accounts.setItem(row, 5, QTableWidgetItem(str(acc.get("AutoLogin"))))
-                self.table_accounts.setItem(row, 6, QTableWidgetItem(str(acc.get("Timestamp"))))
+                self.table_accounts.setItem(row, 4, QTableWidgetItem(str(acc.get("AvatarHash", ""))))
+                self.table_accounts.setItem(row, 5, QTableWidgetItem(str(acc.get("RememberPassword"))))
+                self.table_accounts.setItem(row, 6, QTableWidgetItem(str(acc.get("AutoLogin"))))
+                self.table_accounts.setItem(row, 7, QTableWidgetItem(str(acc.get("Timestamp"))))
         except SteamForgeError as e:
             QMessageBox.critical(self, "Error Parsing VDF", str(e))
             self.log(f"Error parsing loginusers.vdf: {e}")
@@ -476,25 +490,31 @@ class SteamForgeLibTestGUI(QMainWindow):
             self.log(f"Successfully loaded {count} shortcuts with all fields.")
             self.table_shortcuts.setRowCount(count)
 
+            def get_val(data, *keys, default=""):
+                for k in keys:
+                    if k in data:
+                        return data[k]
+                return default
+
             row = 0
             for idx_str, sc_data in shortcuts.items():
                 item_idx = QTableWidgetItem(str(idx_str))
                 item_idx.setData(Qt.UserRole, sc_data)
                 
                 self.table_shortcuts.setItem(row, 0, item_idx)
-                self.table_shortcuts.setItem(row, 1, QTableWidgetItem(str(sc_data.get("appname", ""))))
-                self.table_shortcuts.setItem(row, 2, QTableWidgetItem(str(sc_data.get("exe", ""))))
-                self.table_shortcuts.setItem(row, 3, QTableWidgetItem(str(sc_data.get("StartDir", ""))))
-                self.table_shortcuts.setItem(row, 4, QTableWidgetItem(str(sc_data.get("icon", ""))))
-                self.table_shortcuts.setItem(row, 5, QTableWidgetItem(str(sc_data.get("ShortcutPath", ""))))
-                self.table_shortcuts.setItem(row, 6, QTableWidgetItem(str(sc_data.get("LaunchOptions", ""))))
-                self.table_shortcuts.setItem(row, 7, QTableWidgetItem(str(sc_data.get("IsHidden", 0))))
-                self.table_shortcuts.setItem(row, 8, QTableWidgetItem(str(sc_data.get("AllowDesktopConfig", 1))))
-                self.table_shortcuts.setItem(row, 9, QTableWidgetItem(str(sc_data.get("AllowOverlay", 1))))
-                self.table_shortcuts.setItem(row, 10, QTableWidgetItem(str(sc_data.get("OpenVR", 0))))
-                self.table_shortcuts.setItem(row, 11, QTableWidgetItem(str(sc_data.get("LastPlayTime", 0))))
+                self.table_shortcuts.setItem(row, 1, QTableWidgetItem(str(get_val(sc_data, "AppName", "appname"))))
+                self.table_shortcuts.setItem(row, 2, QTableWidgetItem(str(get_val(sc_data, "Exe", "exe"))))
+                self.table_shortcuts.setItem(row, 3, QTableWidgetItem(str(get_val(sc_data, "StartDir", "startdir"))))
+                self.table_shortcuts.setItem(row, 4, QTableWidgetItem(str(get_val(sc_data, "Icon", "icon"))))
+                self.table_shortcuts.setItem(row, 5, QTableWidgetItem(str(get_val(sc_data, "ShortcutPath", "shortcutpath"))))
+                self.table_shortcuts.setItem(row, 6, QTableWidgetItem(str(get_val(sc_data, "LaunchOptions", "launchoptions"))))
+                self.table_shortcuts.setItem(row, 7, QTableWidgetItem(str(get_val(sc_data, "IsHidden", "ishidden", default=0))))
+                self.table_shortcuts.setItem(row, 8, QTableWidgetItem(str(get_val(sc_data, "AllowDesktopConfig", "allowdesktopconfig", default=1))))
+                self.table_shortcuts.setItem(row, 9, QTableWidgetItem(str(get_val(sc_data, "AllowOverlay", "allowoverlay", default=1))))
+                self.table_shortcuts.setItem(row, 10, QTableWidgetItem(str(get_val(sc_data, "OpenVR", "openvr", default=0))))
+                self.table_shortcuts.setItem(row, 11, QTableWidgetItem(str(get_val(sc_data, "LastPlayTime", "lastplaytime", default=0))))
                 
-                tags_val = sc_data.get("tags", {})
+                tags_val = get_val(sc_data, "tags", "Tags", default={})
                 tags_str = json.dumps(tags_val) if isinstance(tags_val, dict) else str(tags_val)
                 self.table_shortcuts.setItem(row, 12, QTableWidgetItem(tags_str))
                 row += 1
