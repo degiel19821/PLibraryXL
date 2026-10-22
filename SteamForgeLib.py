@@ -57,12 +57,34 @@ class SteamForgeLib:
         except (ValueError, TypeError):
             return False
 
+    @staticmethod
+    def get_default_steam_path() -> str:
+        """
+        Dynamically resolves the default Steam installation path based on common
+        operating system and Linux distribution directories.
+        """
+        possible_paths = [
+            os.path.expanduser("~/.steam/steam"),
+            os.path.expanduser("~/.local/share/Steam"),
+            os.path.expanduser("~/Library/Application Support/Steam"),
+            "C:\\Program Files (x86)\\Steam",
+            "C:\\Program Files\\Steam"
+        ]
+        for path in possible_paths:
+            if os.path.exists(path):
+                return path
+        # Fallback for Steam Deck / general Linux if not explicitly found
+        return os.path.expanduser("~/.local/share/Steam")
+
     @classmethod
-    def parse_steam_login_users(cls, vdf_path: str = "/home/deck/.local/share/Steam/config/loginusers.vdf") -> list:
+    def parse_steam_login_users(cls, vdf_path: str = None) -> list:
         """
         Reads and parses the Steam loginusers.vdf file.
         Returns a list of accounts. Raises VDFParseError on failure.
         """
+        if vdf_path is None:
+            vdf_path = os.path.join(cls.get_default_steam_path(), "config", "loginusers.vdf")
+
         if not os.path.exists(vdf_path):
             raise VDFParseError(f"loginusers.vdf could not be found at: {vdf_path}")
 
@@ -124,7 +146,7 @@ class SteamForgeLib:
             os.replace(temp_path, abs_path)
             return abs_path
         except (PermissionError, OSError) as e:
-            if 'temp_path' in locals() and os.path.exists(temp_path):
+            if "temp_path" in locals() and os.path.exists(temp_path):
                 try: os.remove(temp_path)
                 except: pass
             raise ConfigError(f"Error creating config file: {str(e)}")
@@ -159,7 +181,7 @@ class SteamForgeLib:
 
             os.replace(temp_path, abs_path)
         except (PermissionError, OSError, TypeError) as e:
-            if 'temp_path' in locals() and os.path.exists(temp_path):
+            if "temp_path" in locals() and os.path.exists(temp_path):
                 try: os.remove(temp_path)
                 except: pass
             raise ConfigError(f"Error writing config: {str(e)}")
@@ -285,8 +307,10 @@ class SteamForgeLib:
     # ==========================================
 
     @staticmethod
-    def get_shortcuts_path(steam_id_32: int, base_steam_path: str = "/home/deck/.local/share/Steam") -> str:
+    def get_shortcuts_path(steam_id_32: int, base_steam_path: str = None) -> str:
         """Returns the absolute path to a user's shortcuts.vdf file based on their 32-bit Steam ID."""
+        if base_steam_path is None:
+            base_steam_path = SteamForgeLib.get_default_steam_path()
         return os.path.join(base_steam_path, "userdata", str(steam_id_32), "config", "shortcuts.vdf")
 
     @classmethod
@@ -326,7 +350,7 @@ class SteamForgeLib:
 
             os.replace(temp_path, path)
         except (PermissionError, OSError, ValueError) as e:
-            if 'temp_path' in locals() and os.path.exists(temp_path):
+            if "temp_path" in locals() and os.path.exists(temp_path):
                 try: os.remove(temp_path)
                 except: pass
             raise ShortcutError(f"Error writing shortcuts file: {str(e)}")
