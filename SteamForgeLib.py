@@ -403,7 +403,7 @@ class SteamForgeLib:
         
         req = urllib.request.Request(url, headers={"Authorization": f"Bearer {api_key}", "User-Agent": "SteamForgeLib/1.0"})
         try:
-            with urllib.request.urlopen(req) as response:
+            with urllib.request.urlopen(req, timeout=10) as response:
                 data = json.loads(response.read().decode("utf-8"))
                 if data.get("success") and data.get("data"):
                     return data["data"][0]
@@ -430,7 +430,7 @@ class SteamForgeLib:
         # Standardized User-Agent header fix applied (SteamForgeLib.1.0 -> SteamForgeLib/1.0)
         req = urllib.request.Request(url, headers={"Authorization": f"Bearer {api_key}", "User-Agent": "SteamForgeLib/1.0"})
         try:
-            with urllib.request.urlopen(req) as response:
+            with urllib.request.urlopen(req, timeout=10) as response:
                 data = json.loads(response.read().decode("utf-8"))
                 if not data.get("success"):
                     raise SteamGridDBError(f"Failed to retrieve {image_type}.")
