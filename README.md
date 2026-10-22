@@ -331,6 +331,7 @@ except Exception as e:
 | `SteamForgeLib.update_config_value(file_path, key_path, value)` | `None` | Updates a single config value using dot notation. |
 | `SteamForgeLib.update_config_values(file_path, updates)` | `None` | Batch updates multiple config keys simultaneously. |
 | `SteamForgeLib.is_steam_running()` | `bool` | Checks active OS processes via `psutil` for Steam instances. |
+| `SteamForgeLib.launch_steam_game(app_id)` | `None` | Launches an official Steam game or custom shortcut via `steam://rungameid/`. |
 | `SteamForgeLib.launch_with_umu(target_exe, ...)` | `subprocess.Popen` | Launches a Windows `.exe` using `umu-run` with custom Proton & WINEPREFIX. |
 | `SteamForgeLib.get_shortcuts_path(steam_id_32, base_steam_path)` | `str` | Returns the absolute path to a user's `shortcuts.vdf` file based on ID and base path. |
 | `SteamForgeLib.read_shortcuts(steam_id_32, vdf_path)` | `dict` | Reads binary `shortcuts.vdf` (accepts custom `vdf_path`) for a given Steam user. |
