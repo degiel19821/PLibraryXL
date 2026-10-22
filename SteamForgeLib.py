@@ -526,3 +526,91 @@ class SteamForgeLib:
             raise SteamGridDBError("Invalid game data returned from search.")
 
         return cls.get_sgdb_images_by_id(api_key, game_id, image_type, sizes=sizes, filetypes=filetypes)
+    # ==========================================
+    # OFFICIAL STEAM GAMES (steamapps / .acf)
+    # ==========================================
+
+    @classmethod
+    def get_all_steam_library_folders(cls, base_steam_path: Optional[str] = None) -> List[str]:
+        """
+        Parses Steam's libraryfolders.vdf to locate all secondary and primary game libraries
+        across different disks and drives.
+        """
+        if base_steam_path is None:
+            base_steam_path = cls.get_default_steam_path()
+            
+        libraryfolders_vdf = os.path.join(base_steam_path, "config", "libraryfolders.vdf")
+        libraries = [base_steam_path]
+        
+        if not os.path.exists(libraryfolders_vdf):
+            return libraries
+            
+        try:
+            with open(libraryfolders_vdf, "r", encoding="utf-8", errors="ignore") as f:
+                data = vdf.load(f)
+                
+            folders_dict = data.get("libraryfolders", data)
+            if isinstance(folders_dict, dict):
+                for key, val in folders_dict.items():
+                    if isinstance(val, dict):
+                        path = val.get("path")
+                        if path and isinstance(path, str) and os.path.exists(path):
+                            if path not in libraries:
+                                libraries.append(path)
+        except Exception:
+            pass
+            
+        return libraries
+
+    @classmethod
+    def get_installed_steam_games(cls, base_steam_path: Optional[str] = None) -> List[Dict[str, Any]]:
+        """
+        Scans all Steam library folders (including additional drives/disks configured in Steam)
+        for all appmanifest_*.acf files and parses them to return installed official Steam games.
+        """
+        if base_steam_path is None:
+            base_steam_path = cls.get_default_steam_path()
+            
+        library_paths = cls.get_all_steam_library_folders(base_steam_path)
+        games = []
+        seen_appids = set()
+
+        for lib_path in library_paths:
+            steamapps_dir = os.path.join(lib_path, "steamapps")
+            if not os.path.exists(steamapps_dir):
+                continue
+                
+            try:
+                for filename in os.listdir(steamapps_dir):
+                    if filename.startswith("appmanifest_") and filename.endswith(".acf"):
+                        acf_path = os.path.join(steamapps_dir, filename)
+                        try:
+                            with open(acf_path, "r", encoding="utf-8", errors="ignore") as f:
+                                data = vdf.load(f)
+                            
+                            app_state = data.get("AppState", {})
+                            if not isinstance(app_state, dict):
+                                app_state = {}
+                                
+                            appid = app_state.get("appid")
+                            name = app_state.get("name")
+                            install_dir = app_state.get("installdir")
+                            size_on_disk = app_state.get("SizeOnDisk")
+                            
+                            if appid and name and appid not in seen_appids:
+                                seen_appids.add(appid)
+                                games.append({
+                                    "AppID": str(appid),
+                                    "Name": str(name),
+                                    "InstallDir": str(install_dir) if install_dir else "",
+                                    "SizeOnDisk": int(size_on_disk) if size_on_disk and str(size_on_disk).isdigit() else 0,
+                                    "ManifestPath": acf_path,
+                                    "LibraryPath": lib_path
+                                })
+                        except Exception:
+                            continue
+            except Exception:
+                continue
+
+        games.sort(key=lambda x: x["Name"].lower())
+        return games

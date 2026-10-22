@@ -434,15 +434,22 @@ class SteamForgeLibTestGUI(QMainWindow):
         self.txt_steam_id_32 = QLineEdit("12345678")
         self.txt_base_steam_path = QLineEdit(os.path.expanduser("~/.local/share/Steam"))
         
-        btn_read_shortcuts = QPushButton("Load Shortcuts")
+        btn_read_shortcuts = QPushButton("Load Non-Steam Shortcuts")
         btn_read_shortcuts.clicked.connect(self.load_shortcuts)
+
+        btn_read_official = QPushButton("Load Official Steam Games (steamapps)")
+        btn_read_official.clicked.connect(self.load_official_steam_games)
+
+        btn_row_layout = QHBoxLayout()
+        btn_row_layout.addWidget(btn_read_shortcuts)
+        btn_row_layout.addWidget(btn_read_official)
 
         path_layout.addRow("SteamID32:", self.txt_steam_id_32)
         path_layout.addRow("Base Steam Path:", self.txt_base_steam_path)
-        path_layout.addRow(btn_read_shortcuts)
+        path_layout.addRow(btn_row_layout)
         layout.addWidget(path_group)
 
-        sc_group = QGroupBox("Shortcuts List & Management (All Fields)")
+        sc_group = QGroupBox("Steam Games & Shortcuts Management")
         sc_layout = QVBoxLayout(sc_group)
 
         self.table_shortcuts = QTableWidget()
@@ -478,6 +485,33 @@ class SteamForgeLibTestGUI(QMainWindow):
         except ValueError:
             return 0
 
+    def load_official_steam_games(self):
+        base_path = self.txt_base_steam_path.text()
+        self.log(f"Scanning official Steam games in steamapps at: {base_path}")
+        try:
+            games = SteamForgeLib.get_installed_steam_games(base_path)
+            count = len(games)
+            self.log(f"Successfully loaded {count} official installed Steam games.")
+            
+            self.table_shortcuts.setColumnCount(5)
+            self.table_shortcuts.setHorizontalHeaderLabels([
+                "AppID", "Game Name", "Install Directory", "Size on Disk (MB)", "Manifest Path"
+            ])
+            self.table_shortcuts.horizontalHeader().setSectionResizeMode(QHeaderView.Interactive)
+            self.table_shortcuts.setRowCount(count)
+
+            for row, game in enumerate(games):
+                size_mb = round(game.get("SizeOnDisk", 0) / (1024 * 1024), 2)
+                self.table_shortcuts.setItem(row, 0, QTableWidgetItem(str(game.get("AppID", ""))))
+                self.table_shortcuts.setItem(row, 1, QTableWidgetItem(str(game.get("Name", ""))))
+                self.table_shortcuts.setItem(row, 2, QTableWidgetItem(str(game.get("InstallDir", ""))))
+                self.table_shortcuts.setItem(row, 3, QTableWidgetItem(f"{size_mb} MB"))
+                self.table_shortcuts.setItem(row, 4, QTableWidgetItem(str(game.get("ManifestPath", ""))))
+        except SteamForgeError as e:
+            QMessageBox.warning(self, "Notice / Error", str(e))
+            self.log(f"Official Steam games read notice: {e}")
+            self.table_shortcuts.setRowCount(0)
+
     def load_shortcuts(self):
         steam_id_32 = self.get_steam_id_32()
         base_path = self.txt_base_steam_path.text()
@@ -488,6 +522,13 @@ class SteamForgeLibTestGUI(QMainWindow):
             shortcuts = SteamForgeLib.read_shortcuts(steam_id_32, vdf_path)
             count = len(shortcuts)
             self.log(f"Successfully loaded {count} shortcuts with all fields.")
+            
+            self.table_shortcuts.setColumnCount(13)
+            self.table_shortcuts.setHorizontalHeaderLabels([
+                "Index", "App Name", "Exe", "Start Dir", "Icon", "Shortcut Path", 
+                "Launch Options", "Hidden", "Desktop Config", "Overlay", "OpenVR", "Last Play", "Tags"
+            ])
+            self.table_shortcuts.horizontalHeader().setSectionResizeMode(QHeaderView.Interactive)
             self.table_shortcuts.setRowCount(count)
 
             def get_val(data, *keys, default=""):
