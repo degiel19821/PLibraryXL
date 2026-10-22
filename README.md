@@ -20,8 +20,9 @@ This repository also includes a fully-featured **PySide6 graphical user interfac
    * [4. Managing Binary Steam Shortcuts (`shortcuts.vdf` with Custom Paths)](#4-managing-binary-steam-shortcuts-shortcutsvdf-with-custom-paths)
    * [5. Scanning Installed Official Steam Games (`steamapps` / `.acf`)](#5-scanning-installed-official-steam-games-steamapps--acf)
    * [6. UMU / Proton Launcher Integration](#6-umu--proton-launcher-integration)
-   * [7. SteamGridDB Integration with Advanced Filters](#7-steamgriddb-integration-with-advanced-filters)
-   * [8. Error Handling](#8-error-handling)
+   * [7. Steam Protocol Launching](#7-steam-protocol-launching)
+   * [8. SteamGridDB Integration with Advanced Filters](#8-steamgriddb-integration-with-advanced-filters)
+   * [9. Error Handling](#9-error-handling)
 5. [API Reference Summary](#api-reference-summary)
 
 ---
@@ -35,6 +36,7 @@ This repository also includes a fully-featured **PySide6 graphical user interfac
 * **Official Steam Games Scanning:** Automatically locate primary and secondary Steam library folders via `libraryfolders.vdf` and scan `appmanifest_*.acf` files to retrieve all installed official games with disk usage metrics.
 * **System Process Monitoring:** Quickly verify whether the official Steam client is active on the host OS via `psutil`.
 * **UMU / Proton Integration:** Directly launch Windows executables using `umu-launcher` (`umu-run`) with custom Proton versions, WINEPREFIX paths, and game identifiers.
+* **Steam Protocol Launching (`launch_steam_game`):** Instantly trigger the native Steam protocol handler (`steam://rungameid/<app_id>`) using platform-native utilities (`xdg-open` on Linux, `os.startfile` on Windows) to launch official games or custom shortcuts.
 * **SteamGridDB Integration:** Query games via autocomplete search or direct ID lookup, fetch assets (`grids`, `heroes`, `logos`, `icons`), and apply filters for image dimensions and file types (`png`, `ico`, `jpg`).
 * **Interactive Test GUI (`SteamForgeLibGUI.py`):** A multi-tab desktop app allowing live inspection, manipulation, and visual preview of all library operations.
 
@@ -96,7 +98,7 @@ The companion GUI application (`SteamForgeLibGUI.py`) serves as an interactive t
 
 ### Tab 3: Steam Shortcuts & Official Games Management
 * **Target Selection:** Configure the target `SteamID32` and custom base Steam paths to locate user-specific `shortcuts.vdf` files or scan multi-drive `steamapps` folders.
-* **Interactive Dialogs:** Load, view, add, or edit non-Steam shortcuts across all binary fields, or inspect installed official Steam games.
+* **Interactive Dialogs:** Load, view, add, or edit non-Steam shortcuts across all binary fields, or inspect and launch installed official Steam games or custom shortcuts using the dedicated launch action handlers.
 
 ### Tab 4: UMU / Proton Launcher Integration
 * **Launcher Testing:** Configure a target executable, `umu-run` path, Proton version, game ID, WINEPREFIX, and launch arguments to visually test running isolated Windows programs on Linux via the library wrapper.
@@ -281,7 +283,22 @@ except Exception as e:
     print(f"Launch failed: {e}")
 ```
 
-### 7. SteamGridDB Integration with Advanced Filters
+### 7. Steam Protocol Launching
+
+Launch any official Steam game or custom shortcut using its AppID via the standard `steam://rungameid/` protocol handler.
+
+```python
+from SteamForgeLib import SteamForgeLib
+
+app_id = 730  # Counter-Strike 2 AppID
+try:
+    SteamForgeLib.launch_steam_game(app_id)
+    print(f"Successfully triggered launch for game AppID: {app_id}")
+except Exception as e:
+    print(f"Failed to launch game: {e}")
+```
+
+### 8. SteamGridDB Integration with Advanced Filters
 
 Search for games on SteamGridDB and retrieve customized artwork assets filtered by dimensions and file types.
 
@@ -307,7 +324,7 @@ except Exception as e:
     print(f"SteamGridDB query failed: {e}")
 ```
 
-### 8. Error Handling
+### 9. Error Handling
 
 `SteamForgeLib` implements a custom exception hierarchy derived from `SteamForgeError` for precise try-except blocks:
 * `VDFParseError`: Issues reading or interpreting VDF structures.
