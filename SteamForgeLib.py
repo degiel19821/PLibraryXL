@@ -387,6 +387,9 @@ class SteamForgeLib:
         """
         Edits an existing shortcut by its numeric index.
         """
+        if index < 0:
+            raise ShortcutError(f"Shortcut index cannot be negative: {index}")
+
         shortcuts = cls.read_shortcuts(steam_id_32, vdf_path)
 
         idx_str = str(index)
@@ -402,6 +405,9 @@ class SteamForgeLib:
         Removes a shortcut by its numeric index and automatically re-indexes 
         the remaining entries sequentially as Steam expects.
         """
+        if index < 0:
+            raise ShortcutError(f"Shortcut index cannot be negative: {index}")
+
         shortcuts = cls.read_shortcuts(steam_id_32, vdf_path)
 
         idx_str = str(index)
