@@ -3,6 +3,7 @@ import sys
 import os
 import json
 import urllib.request
+import urllib.error
 from PySide6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QTabWidget, QVBoxLayout, QHBoxLayout,
     QLabel, QLineEdit, QPushButton, QTextEdit, QTableWidget, QTableWidgetItem,
@@ -12,7 +13,11 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Qt, QByteArray
 from PySide6.QtGui import QPixmap, QImage
 
-from SteamForgeLib import SteamForgeLib, SteamForgeError
+# Updated Imports for the refactored library
+from SteamForgeLib import (
+    SteamEnvironment, ConfigManager, ProcessManager, 
+    ShortcutManager, SteamGridDBClient, SteamForgeError
+)
 
 class ShortcutDialog(QDialog):
     def __init__(self, parent=None, shortcut_data=None):
@@ -228,7 +233,7 @@ class SteamForgeLibTestGUI(QMainWindow):
 
     def check_steam_status(self):
         try:
-            running = SteamForgeLib.is_steam_running()
+            running = ProcessManager.is_steam_running()
             status_str = "Running" if running else "Not Running"
             self.lbl_steam_status.setText(f"Steam Status: <b>{status_str}</b>")
             self.log(f"Checked Steam status: {status_str}")
@@ -246,7 +251,7 @@ class SteamForgeLibTestGUI(QMainWindow):
         self.log(f"Parsing loginusers.vdf from: {path}")
         
         try:
-            accounts = SteamForgeLib.parse_steam_login_users(path)
+            accounts = SteamEnvironment.parse_login_users(vdf_path=path)
             count = len(accounts)
             self.log(f"Successfully parsed {count} accounts.")
             self.table_accounts.setRowCount(count)
@@ -344,7 +349,7 @@ class SteamForgeLibTestGUI(QMainWindow):
         path = self.txt_config_path.text()
         initial = {"settings": {"graphics": {"resolution": "1920x1080", "fullscreen": True}, "volume": 80}}
         try:
-            abs_path = SteamForgeLib.create_config(path, initial_data=initial, overwrite=True)
+            abs_path = ConfigManager.create(file_path=path, initial_data=initial, overwrite=True)
             self.log(f"Created config at: {abs_path}")
             self.read_config()
         except SteamForgeError as e:
@@ -354,7 +359,7 @@ class SteamForgeLibTestGUI(QMainWindow):
     def read_config(self):
         path = self.txt_config_path.text()
         try:
-            data = SteamForgeLib.read_config(path)
+            data = ConfigManager.read(file_path=path)
             self.txt_config_editor.setPlainText(json.dumps(data, indent=4))
             self.log(f"Successfully read config from: {path}")
         except SteamForgeError as e:
@@ -366,7 +371,7 @@ class SteamForgeLibTestGUI(QMainWindow):
         content = self.txt_config_editor.toPlainText()
         try:
             data = json.loads(content)
-            SteamForgeLib.write_config(path, data)
+            ConfigManager.write(file_path=path, data=data)
             self.log(f"Successfully wrote config to: {path}")
             QMessageBox.information(self, "Success", "Configuration successfully saved.")
         except json.JSONDecodeError as e:
@@ -394,7 +399,7 @@ class SteamForgeLibTestGUI(QMainWindow):
         val = self.parse_value_type(self.txt_key_value.text())
 
         try:
-            SteamForgeLib.update_config_value(path, key_path, val)
+            ConfigManager.update_values(path, {key_path: val})
             self.log(f"Successfully updated '{key_path}' = {val} in {path}")
             self.read_config()
         except SteamForgeError as e:
@@ -409,7 +414,7 @@ class SteamForgeLibTestGUI(QMainWindow):
             if not isinstance(updates_raw, dict):
                 raise ValueError("Updates must be a dictionary of key-value pairs.")
             updates = {k: self.parse_value_type(str(v)) if not isinstance(v, (bool, int, float)) else v for k, v in updates_raw.items()}
-            SteamForgeLib.update_config_values(path, updates)
+            ConfigManager.update_values(path, updates)
             
             self.log(f"Successfully performed batch update on {path}")
             QMessageBox.information(self, "Success", "Batch configuration updates applied successfully.")
@@ -493,7 +498,7 @@ class SteamForgeLibTestGUI(QMainWindow):
         base_path = self.txt_base_steam_path.text()
         self.log(f"Scanning official Steam games in steamapps at: {base_path}")
         try:
-            games = SteamForgeLib.get_installed_steam_games(base_path)
+            games = SteamEnvironment.get_installed_games(base_steam_path=base_path)
             count = len(games)
             self.log(f"Successfully loaded {count} official installed Steam games.")
             
@@ -505,11 +510,12 @@ class SteamForgeLibTestGUI(QMainWindow):
             self.table_shortcuts.setRowCount(count)
 
             for row, game in enumerate(games):
-                size_mb = round(game.get("SizeOnDisk", 0) / (1024 * 1024), 2)
+                # SizeOnDisk was removed in the refactor, fallback to N/A
+                size_mb = "N/A"
                 self.table_shortcuts.setItem(row, 0, QTableWidgetItem(str(game.get("AppID", ""))))
                 self.table_shortcuts.setItem(row, 1, QTableWidgetItem(str(game.get("Name", ""))))
                 self.table_shortcuts.setItem(row, 2, QTableWidgetItem(str(game.get("InstallDir", ""))))
-                self.table_shortcuts.setItem(row, 3, QTableWidgetItem(f"{size_mb} MB"))
+                self.table_shortcuts.setItem(row, 3, QTableWidgetItem(size_mb))
                 self.table_shortcuts.setItem(row, 4, QTableWidgetItem(str(game.get("ManifestPath", ""))))
         except SteamForgeError as e:
             QMessageBox.warning(self, "Notice / Error", str(e))
@@ -519,11 +525,11 @@ class SteamForgeLibTestGUI(QMainWindow):
     def load_shortcuts(self):
         steam_id_32 = self.get_steam_id_32()
         base_path = self.txt_base_steam_path.text()
-        vdf_path = SteamForgeLib.get_shortcuts_path(steam_id_32, base_path)
+        vdf_path = ShortcutManager.get_path(steam_id_32, base_path)
         
         self.log(f"Reading shortcuts from: {vdf_path}")
         try:
-            shortcuts = SteamForgeLib.read_shortcuts(steam_id_32, vdf_path)
+            shortcuts = ShortcutManager.read(steam_id_32, vdf_path=vdf_path)
             count = len(shortcuts)
             self.log(f"Successfully loaded {count} shortcuts with all fields.")
             
@@ -571,13 +577,13 @@ class SteamForgeLibTestGUI(QMainWindow):
     def add_shortcut_dialog(self):
         steam_id_32 = self.get_steam_id_32()
         base_path = self.txt_base_steam_path.text()
-        vdf_path = SteamForgeLib.get_shortcuts_path(steam_id_32, base_path)
+        vdf_path = ShortcutManager.get_path(steam_id_32, base_path)
 
         dialog = ShortcutDialog(self)
         if dialog.exec() == QDialog.Accepted:
             new_sc = dialog.get_data()
             try:
-                SteamForgeLib.add_shortcut(steam_id_32, new_sc, vdf_path)
+                ShortcutManager.add(steam_id_32, new_sc, vdf_path=vdf_path)
                 self.log("Successfully added new custom shortcut with all fields.")
                 QMessageBox.information(self, "Success", "Custom shortcut added successfully.")
                 self.load_shortcuts()
@@ -601,13 +607,16 @@ class SteamForgeLibTestGUI(QMainWindow):
 
         steam_id_32 = self.get_steam_id_32()
         base_path = self.txt_base_steam_path.text()
-        vdf_path = SteamForgeLib.get_shortcuts_path(steam_id_32, base_path)
+        vdf_path = ShortcutManager.get_path(steam_id_32, base_path)
 
         dialog = ShortcutDialog(self, shortcut_data=existing_data)
         if dialog.exec() == QDialog.Accepted:
             updated_data = dialog.get_data()
             try:
-                SteamForgeLib.edit_shortcut(steam_id_32, idx, updated_data, vdf_path)
+                scs = ShortcutManager.read(steam_id_32, vdf_path=vdf_path)
+                scs[str(idx)] = updated_data
+                ShortcutManager.write(steam_id_32, scs, vdf_path=vdf_path)
+                
                 self.log(f"Successfully updated shortcut at index {idx} with all fields.")
                 QMessageBox.information(self, "Success", f"Shortcut index {idx} updated successfully.")
                 self.load_shortcuts()
@@ -629,7 +638,7 @@ class SteamForgeLibTestGUI(QMainWindow):
         app_id_or_idx = item.text()
         
         try:
-            SteamForgeLib.launch_steam_game(app_id_or_idx)
+            ProcessManager.launch_steam_game(app_id_or_idx)
             self.log(f"Successfully triggered launch for Steam AppID/Index: {app_id_or_idx}")
             QMessageBox.information(self, "Success", f"Launch command sent for: {app_id_or_idx}")
         except SteamForgeError as e:
@@ -650,10 +659,14 @@ class SteamForgeLibTestGUI(QMainWindow):
         idx = int(index_item.text())
         steam_id_32 = self.get_steam_id_32()
         base_path = self.txt_base_steam_path.text()
-        vdf_path = SteamForgeLib.get_shortcuts_path(steam_id_32, base_path)
+        vdf_path = ShortcutManager.get_path(steam_id_32, base_path)
 
         try:
-            SteamForgeLib.remove_shortcut(steam_id_32, idx, vdf_path)
+            scs = ShortcutManager.read(steam_id_32, vdf_path=vdf_path)
+            if str(idx) in scs:
+                del scs[str(idx)]
+                ShortcutManager.write(steam_id_32, scs, vdf_path=vdf_path)
+                
             self.log(f"Successfully removed shortcut at index {idx}.")
             QMessageBox.information(self, "Success", f"Shortcut index {idx} removed successfully.")
             self.load_shortcuts()
@@ -722,7 +735,7 @@ class SteamForgeLibTestGUI(QMainWindow):
 
         self.log(f"Attempting to launch {exe_path} via UMU ({umu_run})...")
         try:
-            process = SteamForgeLib.launch_with_umu(
+            process = ProcessManager.launch_with_umu(
                 target_exe=exe_path,
                 umu_run_path=umu_run,
                 proton_version=proton,
@@ -851,9 +864,9 @@ class SteamForgeLibTestGUI(QMainWindow):
         try:
             if mode == 0:
                 self.log(f"Querying SteamGridDB by name for '{query_text}' ({image_type}) with filters...")
-                images = SteamForgeLib.get_sgdb_images_by_name(
-                    api_key, query_text, image_type, sizes=sizes_list, filetypes=filetypes_list
-                )
+                game_data = SteamGridDBClient.search_game(api_key, query_text)
+                game_id = game_data.get('id')
+                images = SteamGridDBClient.get_images_by_id(api_key, game_id, image_type)
             else:
                 try:
                     game_id = int(query_text)
@@ -862,9 +875,21 @@ class SteamForgeLibTestGUI(QMainWindow):
                     return
 
                 self.log(f"Querying SteamGridDB directly by ID {game_id} ({image_type}) with filters...")
-                images = SteamForgeLib.get_sgdb_images_by_id(
-                    api_key, game_id, image_type, sizes=sizes_list, filetypes=filetypes_list
-                )
+                images = SteamGridDBClient.get_images_by_id(api_key, game_id, image_type)
+
+            # Manual filtering since the new library dropped the kwargs for it
+            if sizes_list or filetypes_list:
+                filtered = []
+                for img in images:
+                    ext = img.get('url', '').split('.')[-1].lower()
+                    dim = f"{img.get('width')}x{img.get('height')}"
+                    
+                    if sizes_list and dim not in sizes_list:
+                        continue
+                    if filetypes_list and ext not in filetypes_list:
+                        continue
+                    filtered.append(img)
+                images = filtered
 
             self.log(f"Successfully retrieved and filtered {len(images)} {image_type} items.")
             self.table_sgdb.setRowCount(len(images))
