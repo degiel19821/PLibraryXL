@@ -1,216 +1,154 @@
 # SteamForgeLib (`SteamForgeLib`)
 
-`SteamForgeLib` is a robust, lightweight, and object-oriented Python library designed to simplify interaction with the Steam client ecosystem, configuration files, binary shortcuts, external metadata APIs, and Proton/UMU compatibility layers.
+`SteamForgeLib` is a lightweight, object-oriented Python library designed to simplify interaction with the Steam client ecosystem, configuration files, binary shortcuts, installed game manifests, and SteamGridDB artwork APIs.
 
-It unifies **Steam `loginusers.vdf` parsing**, **JSON configuration management** (with dot notation support), **binary Steam shortcuts (`shortcuts.vdf`) management**, **official installed Steam games scanning (`steamapps` / `.acf`)**, **system process monitoring via `psutil`**, **UMU / Proton launcher integration (`launch_with_umu`)**, and **SteamGridDB API integration** into a single cohesive library.
+It combines Steam `loginusers.vdf` parsing, JSON configuration management with dot-notation support, binary `shortcuts.vdf` handling, library folder scanning, Steam process monitoring, protocol launching, and Proton/UMU integration into one clean, dependency-light package.
 
-This repository also includes a fully-featured **PySide6 graphical user interface (`SteamForgeLibGUI.py`)**, built specifically as a live testing workbench and demonstration suite for every single feature and method in the library.
+This repository also includes a companion `SteamForgeLibGUI.py` application for live testing, debugging, and demonstration of the library's features.
 
-> **Important Note on Dependencies:** **Only the testing GUI (`SteamForgeLibGUI.py`) requires PySide6.** The core library (`SteamForgeLib.py`) does **not** use PySide6 and depends only on lightweight community standards (`vdf` and `psutil`), making it fully suitable for headless scripts, automation tools, or backend services.
-
-## Table of Contents
-
-1. [Features Overview](#features-overview)
-2. [Prerequisites & Installation](#prerequisites--installation)
-3. [The Testing & Demonstration GUI (`SteamForgeLibGUI.py`)](#the-testing--demonstration-gui-steamforgelibguippy)
-4. [Core API Usage & Code Examples](#core-api-usage--code-examples)
-   * [1. Parsing Steam Login Users (with Custom VDF Path)](#1-parsing-steam-login-users-with-custom-vdf-path)
-   * [2. JSON Configuration Management & Dot-Notation Updates](#2-json-configuration-management--dot-notation-updates)
-   * [3. System Process Monitoring](#3-system-process-monitoring)
-   * [4. Managing Binary Steam Shortcuts (`shortcuts.vdf` with Custom Paths)](#4-managing-binary-steam-shortcuts-shortcutsvdf-with-custom-paths)
-   * [5. Scanning Installed Official Steam Games (`steamapps` / `.acf`)](#5-scanning-installed-official-steam-games-steamapps--acf)
-   * [6. UMU / Proton Launcher Integration](#6-umu--proton-launcher-integration)
-   * [7. Steam Protocol Launching](#7-steam-protocol-launching)
-   * [8. SteamGridDB Integration with Advanced Filters](#8-steamgriddb-integration-with-advanced-filters)
-   * [9. Error Handling](#9-error-handling)
-5. [API Reference Summary](#api-reference-summary)
-
----
+> Important: The GUI depends on `PySide6`, but the core `SteamForgeLib.py` module does not. The library core only requires lightweight runtime dependencies such as `vdf` and `psutil`.
 
 ## Features Overview
 
-* **Steam VDF Parsing:** Safely reads and parses Steam's `loginusers.vdf` configuration file, with full support for custom file paths, automatically computing both `SteamID64` and `SteamID32`.
-* **JSON Configuration Engine:** Create, read, write, and manipulate JSON config files with advanced dot-notation key paths (e.g., `settings.graphics.resolution`).
-* **Batch Configuration Updates:** Update multiple configuration values simultaneously in a single transaction.
-* **Binary Steam Shortcuts (`shortcuts.vdf`):** Full CRUD support for non-Steam game shortcuts, complete with automatic sequential re-indexing, multi-field management, and custom VDF path overrides.
-* **Official Steam Games Scanning:** Automatically locate primary and secondary Steam library folders via `libraryfolders.vdf` and scan `appmanifest_*.acf` files to retrieve all installed official games with disk usage metrics.
-* **System Process Monitoring:** Quickly verify whether the official Steam client is active on the host OS via `psutil`.
-* **UMU / Proton Integration:** Directly launch Windows executables using `umu-launcher` (`umu-run`) with custom Proton versions, WINEPREFIX paths, and game identifiers.
-* **Steam Protocol Launching (`launch_steam_game`):** Instantly trigger the native Steam protocol handler (`steam://rungameid/<app_id>`) using platform-native utilities (`xdg-open` on Linux, `os.startfile` on Windows) to launch official games or custom shortcuts.
-* **SteamGridDB Integration:** Query games via autocomplete search or direct ID lookup, fetch assets (`grids`, `heroes`, `logos`, `icons`), and apply filters for image dimensions and file types (`png`, `ico`, `jpg`).
-* **Interactive Test GUI (`SteamForgeLibGUI.py`):** A multi-tab desktop app allowing live inspection, manipulation, and visual preview of all library operations.
+* **Steam VDF Parsing:** Safely reads and parses `loginusers.vdf` files, including custom paths, and computes both `SteamID64` and `SteamID32` automatically.
+* **JSON Configuration Engine:** Create, read, write, and update JSON config files using nested dot-notation keys like `settings.graphics.resolution`.
+* **Batch Configuration Updates:** Apply multiple updates in one transaction with `update_config_values()`.
+* **Binary Steam Shortcuts (`shortcuts.vdf`):** Full support for reading, writing, editing, adding, and removing non-Steam shortcuts, including custom VDF path overrides.
+* **Official Steam Games Scanning:** Locate Steam library folders using `libraryfolders.vdf` and scan `appmanifest_*.acf` files for installed official games.
+* **System Process Monitoring:** Detect whether Steam is currently running on the host OS via `psutil`.
+* **UMU / Proton Integration:** Launch Windows executables with `umu-run` using custom Proton versions, `WINEPREFIX`, and launch arguments.
+* **Steam Protocol Launching:** Trigger Steam launches through the native `steam://rungameid/<app_id>` protocol handler.
+* **Local Artwork Discovery:** Search local Steam cache folders for cached artwork such as grids, heroes, logos, and icons.
+* **SteamGridDB Integration:** Query games by name or ID, fetch artwork assets, and filter results by sizes and file types.
+* **Interactive Test GUI (`SteamForgeLibGUI.py`):** A desktop testing sandbox for live inspection and interaction with the library.
 
 ---
 
 ## Prerequisites & Installation
 
-Depending on how you plan to use `SteamForgeLib`, you can install either just the lightweight core dependencies or the full GUI stack. 
+### Core library only
 
-### Automated Setup (Recommended for GUI Testing)
-
-For the easiest way to test the full stack, use the provided helper scripts. They will automatically create an isolated Python virtual environment (`.venv`), install all required dependencies (including PySide6), and launch the interface:
-
-```bash
-# Make the scripts executable
-chmod +x run_gui.sh uninstall.sh
-
-# Setup the environment and launch the GUI
-./run_gui.sh
-
-# When you're done, you can cleanly remove the environment and cache files
-./uninstall.sh
-```
-
-### Manual Installation
-
-#### 1. Core Library Only (Headless / Backend / Scripts)
-
-If you are only importing `SteamForgeLib` into your own scripts or backend tools, you only need `vdf` and `psutil`:
+If you are using `SteamForgeLib` in scripts or backend tools, install the minimal required packages:
 
 ```bash
 pip install vdf psutil
 ```
 
-#### 2. Full Stack with Testing GUI
+### Full GUI stack
 
-If you want to manually run the interactive PySide6 graphical testing workbench (`SteamForgeLibGUI.py`), install PySide6 alongside the core packages:
+If you want to run the testing GUI, install PySide6 as well:
 
 ```bash
 pip install PySide6 vdf psutil
 python3 SteamForgeLibGUI.py
 ```
 
-Ensure `SteamForgeLib.py` and `SteamForgeLibGUI.py` are located in the same working directory.
+Ensure `SteamForgeLib.py` and `SteamForgeLibGUI.py` are in the same directory.
 
 ---
 
 ## The Testing & Demonstration GUI (`SteamForgeLibGUI.py`)
 
-The companion GUI application (`SteamForgeLibGUI.py`) serves as an interactive testing sandbox and demonstration suite for `SteamForgeLib`. Designed strictly for testing and demonstrating the library's capabilities visually, it features a tabbed layout and a real-time execution log window at the bottom.
+The GUI is a desktop workbench for exercising the library interactively. It is intended for debugging, experimentation, and demonstration.
 
 ### Tab 1: Steam Process & Users
-* **Process Monitoring:** Click **"Check if Steam is Running"** to execute `SteamForgeLib.is_steam_running()` and instantly check process states via `psutil`.
-* **Login Users:** Specify or browse to any custom `loginusers.vdf` file path. Clicking **"Parse Login Users"** invokes `SteamForgeLib.parse_steam_login_users(vdf_path)`, populating a detailed table with account identifiers, persona names, and login preferences.
+* **Process Monitoring:** Check whether the Steam client is running.
+* **Login Users:** Parse `loginusers.vdf` from default or custom paths and inspect account metadata.
 
 ### Tab 2: JSON Config Management
-* **File Operations:** Create pre-populated test configurations, load existing files, or edit JSON content directly in the embedded text editor.
-* **Single & Batch Updates:** Test dot-notation updates (`settings.graphics.fullscreen`) or provide a JSON dictionary of multiple updates to test batch transactions.
+* **File Operations:** Create, load, and edit configuration files.
+* **Single & Batch Updates:** Test dot-notation updates and multi-key batch writes.
 
-### Tab 3: Steam Shortcuts & Official Games Management
-* **Target Selection:** Configure the target `SteamID32` and custom base Steam paths to locate user-specific `shortcuts.vdf` files or scan multi-drive `steamapps` folders.
-* **Interactive Dialogs:** Load, view, add, or edit non-Steam shortcuts across all binary fields, or inspect and launch installed official Steam games or custom shortcuts using the dedicated launch action handlers.
+### Tab 3: Steam Shortcuts & Official Games
+* **Target Selection:** Set Steam user IDs and custom Steam paths.
+* **Interactive Dialogs:** Read and write shortcut records and inspect installed game manifests.
 
 ### Tab 4: UMU / Proton Launcher Integration
-* **Launcher Testing:** Configure a target executable, `umu-run` path, Proton version, game ID, WINEPREFIX, and launch arguments to visually test running isolated Windows programs on Linux via the library wrapper.
+* **Launcher Testing:** Run Windows executables via `umu-run` with custom Proton, `WINEPREFIX`, and launch arguments.
 
 ### Tab 5: SteamGridDB Integration & Preview
-* **API Testing:** Enter your SteamGridDB API key securely, choose between name-based search or direct ID lookup, and apply filters for asset dimensions (`600x900`) and file types (`png`).
-* **Live Image Preview:** Selecting any row in the search results table automatically downloads and renders a high-quality preview of the artwork in the integrated viewer panel.
+* **API Testing:** Search games by name or ID and apply filters for dimensions and file format.
+* **Live Artwork Preview:** View downloaded SteamGridDB assets in the GUI.
 
 ---
 
 ## Core API Usage & Code Examples
 
-### 1. Parsing Steam Login Users (with Custom VDF Path)
-
-Read local Steam account configurations from default or custom VDF file paths to extract user IDs and profile info.
+### 1. Parsing Steam Login Users
 
 ```python
 from SteamForgeLib import SteamForgeLib
 
-# Example A: Using the default Linux Steam path (/home/deck/.local/share/Steam/config/loginusers.vdf)
+# Default system Steam config path
 try:
     accounts = SteamForgeLib.parse_steam_login_users()
-    print(f"Found {len(accounts)} Steam account(s) from default path.")
-except Exception as e:
-    print(f"Failed to parse default login users: {e}")
-
-# Example B: Providing a custom VDF file path (e.g., Windows backup, flatpak, or custom mount)
-custom_vdf_path = "/mnt/backup/Steam/config/loginusers.vdf"
-try:
-    accounts = SteamForgeLib.parse_steam_login_users(vdf_path=custom_vdf_path)
-    print(f"Found {len(accounts)} Steam account(s) from custom path:")
+    print(f"Found {len(accounts)} account(s).")
     for acc in accounts:
-        print(f" - {acc['AccountName']} (ID64: {acc['SteamID64']}, ID32: {acc['SteamID32']})")
+        print(acc["AccountName"], acc["SteamID64"], acc["SteamID32"])
 except Exception as e:
-    print(f"Failed to parse custom login users path: {e}")
+    print(f"Failed to parse login users: {e}")
+
+# Custom VDF path
+custom_vdf = "/mnt/backup/Steam/config/loginusers.vdf"
+try:
+    accounts = SteamForgeLib.parse_steam_login_users(vdf_path=custom_vdf)
+    print(accounts)
+except Exception as e:
+    print(f"Custom VDF parse failed: {e}")
 ```
 
 ### 2. JSON Configuration Management & Dot-Notation Updates
-
-Create configuration files and update nested parameters cleanly using dot notation.
 
 ```python
 from SteamForgeLib import SteamForgeLib
 
 config_file = "my_app_config.json"
 
-# 1. Create a configuration file with initial data
 initial_data = {
     "settings": {
         "graphics": {
             "resolution": "1920x1080",
-            "fullscreen": True
+            "fullscreen": True,
         },
-        "volume": 75
+        "volume": 75,
     }
 }
-path = SteamForgeLib.create_config(config_file, initial_data=initial_data, overwrite=True)
-print(f"Config created at: {path}")
 
-# 2. Update a single nested key using dot notation
+SteamForgeLib.create_config(config_file, initial_data=initial_data, overwrite=True)
 SteamForgeLib.update_config_value(config_file, "settings.graphics.resolution", "2560x1440")
-
-# 3. Perform batch updates on multiple keys at once
 SteamForgeLib.update_config_values(config_file, {
     "settings.volume": 90,
     "settings.graphics.fullscreen": False,
-    "user.profile.name": "PlayerOne"
+    "user.profile.name": "PlayerOne",
 })
 
-# 4. Read back the updated configuration
-config_data = SteamForgeLib.read_config(config_file)
-print("Updated Config:", config_data)
+print(SteamForgeLib.read_config(config_file))
 ```
 
 ### 3. System Process Monitoring
-
-Check if the official Steam client is currently active on the host machine.
 
 ```python
 from SteamForgeLib import SteamForgeLib
 
 if SteamForgeLib.is_steam_running():
-    print("Steam client is currently running.")
+    print("Steam is running.")
 else:
-    print("Steam client is not running.")
+    print("Steam is not running.")
 ```
 
-### 4. Managing Binary Steam Shortcuts (`shortcuts.vdf` with Custom Paths)
-
-Read, add, edit, and remove non-Steam game shortcuts using standard user IDs or custom VDF file overrides.
+### 4. Managing Binary Steam Shortcuts (`shortcuts.vdf`)
 
 ```python
 from SteamForgeLib import SteamForgeLib
 
-steam_id_32 = 12345678  # Replace with the user's 32-bit Steam ID
+steam_id_32 = 12345678
 
-# Example A: Using standard base steam path resolution
 try:
     shortcuts = SteamForgeLib.read_shortcuts(steam_id_32)
-    print(f"Loaded {len(shortcuts)} shortcuts from default userdata directory.")
+    print(f"Loaded {len(shortcuts)} shortcut(s).")
 except Exception as e:
-    print(f"Notice: {e}")
+    print(f"Shortcuts read failed: {e}")
 
-# Example B: Overriding with a custom shortcuts.vdf file path directly
-custom_shortcuts_path = "/home/deck/.var/app/com.valvesoftware.Steam/.local/share/Steam/userdata/12345678/config/shortcuts.vdf"
-try:
-    shortcuts = SteamForgeLib.read_shortcuts(steam_id_32, vdf_path=custom_shortcuts_path)
-    print(f"Loaded {len(shortcuts)} shortcuts from custom flatpak path.")
-except Exception as e:
-    print(f"Failed to read custom shortcuts path: {e}")
-
-# Adding a new shortcut with the custom path override
 new_shortcut = {
     "appname": "My Custom Game",
     "exe": '"/usr/bin/mygame"',
@@ -227,43 +165,39 @@ new_shortcut = {
     "DevkitOverrideAppID": 0,
     "LastPlayTime": 0,
     "FlatpakAppID": "",
-    "tags": {"Favorites": 1}
+    "tags": {"Favorites": 1},
 }
 
-SteamForgeLib.add_shortcut(steam_id_32, new_shortcut, vdf_path=custom_shortcuts_path)
-print("New shortcut added successfully to custom VDF path.")
+SteamForgeLib.add_shortcut(steam_id_32, new_shortcut)
 ```
 
-### 5. Scanning Installed Official Steam Games (`steamapps` / `.acf`)
+You can also point directly to a custom `shortcuts.vdf` path:
 
-Scan primary and secondary Steam library folders across drives to discover installed official Steam games and their manifests.
+```python
+SteamForgeLib.read_shortcuts(steam_id_32, vdf_path="/path/to/custom/shortcuts.vdf")
+```
+
+### 5. Scanning Installed Official Steam Games
 
 ```python
 from SteamForgeLib import SteamForgeLib
 
-# 1. Retrieve all configured Steam library folder paths across drives
 try:
     libraries = SteamForgeLib.get_all_steam_library_folders()
-    print(f"Found {len(libraries)} Steam library folder(s):")
-    for lib in libraries:
-        print(f" - {lib}")
+    print("Libraries:", libraries)
 except Exception as e:
-    print(f"Failed to get library folders: {e}")
+    print(f"Failed to detect libraries: {e}")
 
-# 2. Scan all libraries for installed official Steam games via appmanifest_*.acf files
 try:
     installed_games = SteamForgeLib.get_installed_steam_games()
-    print(f"Found {len(installed_games)} installed official Steam game(s):")
     for game in installed_games:
-        size_mb = round(game['SizeOnDisk'] / (1024 * 1024), 2)
-        print(f" - [{game['AppID']}] {game['Name']} (Library: {game['LibraryPath']}, Size: {size_mb} MB)")
+        size_mb = round(game["SizeOnDisk"] / (1024 * 1024), 2)
+        print(f"[{game['AppID']}] {game['Name']} - {size_mb} MB")
 except Exception as e:
     print(f"Failed to scan installed games: {e}")
 ```
 
 ### 6. UMU / Proton Launcher Integration
-
-Launch Windows executables via `umu-run` with isolated prefixes and custom Proton versions.
 
 ```python
 from SteamForgeLib import SteamForgeLib
@@ -276,31 +210,44 @@ try:
         game_id="123456",
         prefix_path="/path/to/wineprefix",
         launch_options=["-dx11", "-windowed"],
-        log_output=True
+        log_output=True,
     )
-    print(f"Successfully launched game with UMU (PID: {process.pid})")
+    print(f"Launched with PID: {process.pid}")
 except Exception as e:
     print(f"Launch failed: {e}")
 ```
 
 ### 7. Steam Protocol Launching
 
-Launch any official Steam game or custom shortcut using its AppID via the standard `steam://rungameid/` protocol handler.
-
 ```python
 from SteamForgeLib import SteamForgeLib
 
-app_id = 730  # Counter-Strike 2 AppID
+app_id = 730
 try:
     SteamForgeLib.launch_steam_game(app_id)
-    print(f"Successfully triggered launch for game AppID: {app_id}")
+    print(f"Triggering launch for AppID: {app_id}")
 except Exception as e:
     print(f"Failed to launch game: {e}")
 ```
 
-### 8. SteamGridDB Integration with Advanced Filters
+### 8. Local Artwork Discovery
 
-Search for games on SteamGridDB and retrieve customized artwork assets filtered by dimensions and file types.
+```python
+from SteamForgeLib import SteamForgeLib
+
+art = SteamForgeLib.get_local_artwork(730)
+print(art)
+```
+
+This searches the local Steam cache directories for artwork such as:
+
+- `library_600x900.jpg`
+- `library_hero.jpg`
+- `header.jpg`
+- `logo.png`
+- `icon.jpg`
+
+### 9. SteamGridDB Integration with Advanced Filters
 
 ```python
 from SteamForgeLib import SteamForgeLib
@@ -308,31 +255,30 @@ from SteamForgeLib import SteamForgeLib
 API_KEY = "your_steamgriddb_api_key_here"
 
 try:
-    # Fetch custom icon assets for a game with size and format filtering
     images = SteamForgeLib.get_sgdb_images_by_name(
         api_key=API_KEY,
         game_name="Hades",
-        image_type="icons",           # Options: 'grids', 'heroes', 'logos', 'icons'
-        sizes=["512x512"],            # Filter by exact dimensions
-        filetypes=["png", "ico"]      # Filter by file extension
+        image_type="icons",
+        sizes=["512x512"],
+        filetypes=["png", "ico"],
     )
-
-    print(f"Retrieved {len(images)} matching icon(s):")
+    print(f"Retrieved {len(images)} image(s).")
     for img in images:
-        print(f" - ID: {img['id']} | Dimensions: {img['width']}x{img['height']} | URL: {img['url']}")
+        print(img["id"], img["width"], img["height"], img["url"])
 except Exception as e:
     print(f"SteamGridDB query failed: {e}")
 ```
 
-### 9. Error Handling
+### 10. Error Handling
 
-`SteamForgeLib` implements a custom exception hierarchy derived from `SteamForgeError` for precise try-except blocks:
-* `VDFParseError`: Issues reading or interpreting VDF structures.
-* `ConfigError`: Issues reading, writing, or manipulating JSON configuration files.
-* `ProcessMonitorError`: Failures when hooking into the OS process table via `psutil`.
-* `UMUError`: Failures establishing the wrapper or locating dependencies for `umu-run`.
-* `ShortcutError`: Indexing errors, permission issues, or file corruptions during shortcuts.vdf transactions.
-* `SteamGridDBError`: HTTP timeouts, missing assets, or invalid JSON payloads from the API.
+`SteamForgeLib` implements a custom exception hierarchy derived from `SteamForgeError`:
+
+* `VDFParseError`: Issues parsing or reading VDF files.
+* `ConfigError`: Problems reading or writing JSON config data.
+* `ProcessMonitorError`: Process table or `psutil` access failures.
+* `UMUError`: `umu-run` launch and wrapper issues.
+* `ShortcutError`: Shortcut file corruption, indexing, or permission problems.
+* `SteamGridDBError`: HTTP issues, invalid JSON, or missing content from SteamGridDB.
 
 ---
 
@@ -340,24 +286,34 @@ except Exception as e:
 
 | Method | Return Type | Description |
 | --- | --- | --- |
-| `SteamForgeLib.get_default_steam_path()` | `str` | Dynamically resolves the default Steam installation path based on the host OS. |
-| `SteamForgeLib.parse_steam_login_users(vdf_path)` | `list` | Parses `loginusers.vdf` (accepts custom `vdf_path`) and extracts account dicts with ID64/ID32. |
-| `SteamForgeLib.create_config(file_path, initial_data, overwrite)` | `str` | Creates a new JSON configuration file and returns its absolute path. |
-| `SteamForgeLib.read_config(file_path)` | `dict` | Reads and parses a JSON configuration file. |
-| `SteamForgeLib.write_config(file_path, data, indent)` | `None` | Dumps dictionary data into a JSON configuration file atomically. |
-| `SteamForgeLib.update_config_value(file_path, key_path, value)` | `None` | Updates a single config value using dot notation. |
-| `SteamForgeLib.update_config_values(file_path, updates)` | `None` | Batch updates multiple config keys simultaneously. |
-| `SteamForgeLib.is_steam_running()` | `bool` | Checks active OS processes via `psutil` for Steam instances. |
-| `SteamForgeLib.launch_steam_game(app_id)` | `None` | Launches an official Steam game or custom shortcut via `steam://rungameid/`. |
-| `SteamForgeLib.launch_with_umu(target_exe, ...)` | `subprocess.Popen` | Launches a Windows `.exe` using `umu-run` with custom Proton & WINEPREFIX. |
-| `SteamForgeLib.get_shortcuts_path(steam_id_32, base_steam_path)` | `str` | Returns the absolute path to a user's `shortcuts.vdf` file based on ID and base path. |
-| `SteamForgeLib.read_shortcuts(steam_id_32, vdf_path)` | `dict` | Reads binary `shortcuts.vdf` (accepts custom `vdf_path`) for a given Steam user. |
-| `SteamForgeLib.write_shortcuts(steam_id_32, dict, vdf_path)` | `None` | Dumps shortcut records back to binary VDF format (accepts custom `vdf_path`). |
-| `SteamForgeLib.add_shortcut(steam_id_32, shortcut_data, path)` | `None` | Appends a new non-Steam shortcut entry (accepts custom `path`/`vdf_path`). |
-| `SteamForgeLib.edit_shortcut(steam_id_32, index, updates, path)` | `None` | Modifies an existing shortcut by numeric index (accepts custom `path`/`vdf_path`). |
-| `SteamForgeLib.remove_shortcut(steam_id_32, index, path)` | `None` | Removes a shortcut and auto-re-indexes remaining items (accepts custom `path`/`vdf_path`). |
-| `SteamForgeLib.get_all_steam_library_folders(base_steam_path)` | `list` | Parses `libraryfolders.vdf` to find all primary and secondary Steam library paths. |
-| `SteamForgeLib.get_installed_steam_games(base_steam_path)` | `list` | Scans all library folders for `appmanifest_*.acf` files and returns installed official games. |
-| `SteamForgeLib.search_sgdb_game(api_key, game_name)` | `dict` | Autocomplete searches SteamGridDB for game details. |
-| `SteamForgeLib.get_sgdb_images_by_id(api_key, id, type, ...)` | `list` | Fetches game assets by ID with size and filetype filtering. |
-| `SteamForgeLib.get_sgdb_images_by_name(api_key, name, type, ...)` | `list` | Convenience wrapper resolving a game name to fetch filtered assets. |
+| `SteamForgeLib.get_default_steam_path()` | `str` | Resolves the default Steam installation path for the host OS. |
+| `SteamForgeLib.parse_steam_login_users(vdf_path=None)` | `list[dict]` | Parses `loginusers.vdf` and extracts account fields with ID64 / ID32 values. |
+| `SteamForgeLib.create_config(file_path, initial_data=None, overwrite=False)` | `str` | Creates a new JSON config file and returns its path. |
+| `SteamForgeLib.read_config(file_path)` | `dict` | Reads a JSON config file. |
+| `SteamForgeLib.write_config(file_path, data, indent=4)` | `None` | Writes a JSON config atomically. |
+| `SteamForgeLib.update_config_value(file_path, key_path, value)` | `None` | Updates a nested key using dot notation. |
+| `SteamForgeLib.update_config_values(file_path, updates)` | `None` | Applies several nested updates in one batch. |
+| `SteamForgeLib.is_steam_running()` | `bool` | Detects whether Steam is running on the host system. |
+| `SteamForgeLib.launch_steam_game(app_id)` | `None` | Launches a Steam game via `steam://rungameid/<app_id>`. |
+| `SteamForgeLib.launch_with_umu(target_exe, ...)` | `subprocess.Popen` | Launches a Windows executable using `umu-run` with Proton and `WINEPREFIX` support. |
+| `SteamForgeLib.get_local_artwork(app_id, custom_steam_path=None)` | `dict` | Locates local cached artwork for a game. |
+| `SteamForgeLib.get_shortcuts_path(steam_id_32, base_steam_path=None)` | `str` | Returns the shortcut path for a Steam user ID. |
+| `SteamForgeLib.read_shortcuts(steam_id_32, vdf_path=None)` | `dict` | Reads a binary `shortcuts.vdf` file. |
+| `SteamForgeLib.write_shortcuts(steam_id_32, shortcuts_dict, vdf_path=None)` | `None` | Writes a binary `shortcuts.vdf` file. |
+| `SteamForgeLib.add_shortcut(steam_id_32, shortcut_data, vdf_path=None)` | `None` | Appends a shortcut entry. |
+| `SteamForgeLib.edit_shortcut(steam_id_32, index, updates, vdf_path=None)` | `None` | Modifies a shortcut by index. |
+| `SteamForgeLib.remove_shortcut(steam_id_32, index, vdf_path=None)` | `None` | Removes a shortcut and re-indexes the remaining items. |
+| `SteamForgeLib.get_all_steam_library_folders(base_steam_path=None)` | `list[str]` | Finds the Steam library folders from `libraryfolders.vdf`. |
+| `SteamForgeLib.get_installed_steam_games(base_steam_path=None)` | `list[dict]` | Scans `steamapps` and returns official installed games. |
+| `SteamForgeLib.search_sgdb_game(api_key, game_name)` | `dict` | Autocomplete search for a game on SteamGridDB. |
+| `SteamForgeLib.get_sgdb_images_by_id(api_key, game_id, image_type='grids', sizes=None, filetypes=None)` | `list[dict]` | Fetches artwork by game ID with filtering. |
+| `SteamForgeLib.get_sgdb_images_by_name(api_key, game_name, image_type='grids', sizes=None, filetypes=None)` | `list[dict]` | Fetches artwork by name with filtering. |
+
+---
+
+## Notes
+
+- The core library is lightweight and intended for headless usage in scripts and tools.
+- The included GUI is a testing and demonstration tool, not a runtime dependency.
+- The project is designed to work with default Steam paths, custom VDF locations, and multi-library setups.
+
