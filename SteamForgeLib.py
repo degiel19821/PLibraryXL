@@ -605,7 +605,7 @@ class SteamForgeLib:
                             appid = app_state.get("appid")
                             name = app_state.get("name")
                             install_dir = app_state.get("installdir")
-                            size_on_disk = app_state.get("SizeOnDict") or app_state.get("SizeOnDisk")
+                            size_on_disk = app_state.get("SizeOnDisk")
                             
                             if appid and name and appid not in seen_appids:
                                 seen_appids.add(appid)
